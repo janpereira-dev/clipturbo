@@ -1,27 +1,103 @@
-# ClipTurbo
+<div align="center">
+  <h1 align="center">ClipTurbo</h1>
+  <p align="center">
+    Plataforma Spain-first para crear, adaptar y programar videos cortos en espanol.
+  </p>
+  <p align="center">
+    <a href="https://github.com/janpereira-dev/clipturbo/stargazers"><img src="https://img.shields.io/github/stars/janpereira-dev/clipturbo.svg?style=for-the-badge" alt="Stargazers"></a>
+    <a href="https://github.com/janpereira-dev/clipturbo/issues"><img src="https://img.shields.io/github/issues/janpereira-dev/clipturbo.svg?style=for-the-badge" alt="Issues"></a>
+    <a href="https://github.com/janpereira-dev/clipturbo/network/members"><img src="https://img.shields.io/github/forks/janpereira-dev/clipturbo.svg?style=for-the-badge" alt="Forks"></a>
+    <a href="https://github.com/janpereira-dev/clipturbo/blob/main/LICENSE"><img src="https://img.shields.io/github/license/janpereira-dev/clipturbo.svg?style=for-the-badge" alt="License"></a>
+  </p>
+  <p align="center">
+    Espanol
+  </p>
+</div>
 
-ClipTurbo es una base inicial Python-first para construir una plataforma de creacion, adaptacion y programacion de videos cortos en espanol para YouTube, Instagram y TikTok. Este repositorio prioriza orquestacion de agentes, arquitectura, memoria operativa y una base tecnica sobria para evolucionar a SaaS sin empezar con complejidad innecesaria.
+## Vision
 
-## Estado actual
+ClipTurbo es un producto nuevo para equipos pequenos, creadores y negocios que necesitan producir mas video corto en espanol con menos friccion tecnica y mas control editorial.
 
-Fase 1 implementada en este repo:
+La promesa del producto es concreta:
+- mas flujo
+- mas velocidad
+- mas reutilizacion
+- mas control
+- menos friccion operativa
+
+No es una herramienta para spam, no promete dinero automatico y no se plantea como autopublicador irresponsable.
+
+## Que estamos construyendo
+
+ClipTurbo esta orientado a un flujo real de contenido:
+
+1. definir idea o tema
+2. generar variantes de hook
+3. redactar guion en espanol
+4. elegir voz o proveedor TTS
+5. seleccionar assets
+6. generar subtitulos
+7. renderizar video vertical o horizontal
+8. revisar
+9. exportar o publicar en borrador
+
+## Enfoque Spain-first
+
+- idioma principal: espanol
+- prioridad inicial: Espana
+- preparado para es-ES, es-MX, es-AR, es-VE y espanol neutro
+- copy, tono y formatos pensados para publico hispano
+- borrador por defecto y revision humana antes de publicar
+
+## Modelos y voces en espanol
+
+ClipTurbo se esta organizando para trabajar con prompts y salidas en espanol desde el origen del sistema.
+
+Prioridades de integracion:
+- modelos LLM con buen desempeno en espanol
+- voces TTS naturales para es-ES y espanol latino
+- subtitulado con puntuacion correcta en espanol
+- configuracion desacoplada por proveedor
+
+Estrategia tecnica:
+- `LLMProvider`
+- `TTSProvider`
+- `STTProvider`
+- `SubtitleProvider`
+- `ThumbnailProvider`
+- `PublisherProvider`
+- `StorageProvider`
+
+El core no debe depender de un proveedor concreto.
+
+## Estado actual del repositorio
+
+Esta fase implementa la base operativa del proyecto:
 - gobierno para `Codex`, `Claude Code` y `GitHub Copilot`
-- prompt maestro optimizado para bajo consumo de tokens
-- subagentes especializados por dominio y control
-- skills reutilizables con foco operativo
-- manifiestos de arquitectura, tokens y comandos
+- prompt maestro optimizado para ahorro de tokens
+- subagentes especializados por dominio
+- skills reutilizables y compactas
+- manifiestos de arquitectura, tokens y memoria
 - memoria dual: `docs/lessons/` y Engram
 - esqueleto Python para `api`, `worker` y `core`
 
-## Inventario
+## Arquitectura base
 
-- agentes: 9
-- skills: 8
-- manifiestos: 5
-- apps Python base: 2
-- paquete compartido Python: 1
+- `apps/api-fastapi`: API principal
+- `apps/worker-media`: worker para pipeline multimedia
+- `packages/clipturbo_core`: contratos y tipos compartidos
+- `agents/`: agentes y subagentes operativos
+- `agents/skills/`: checklists y procedimientos compactos
+- `docs/`: arquitectura, prompts, producto y runbooks
+- `manifests/`: reglas base del sistema
 
-## Flujo de trabajo
+## Compatibilidad de agentes
+
+- `Codex`: [AGENTS.md](AGENTS.md)
+- `Claude Code`: [CLAUDE.md](CLAUDE.md)
+- `GitHub Copilot`: [.github/copilot-instructions.md](.github/copilot-instructions.md)
+
+## Flujo de trabajo del repo
 
 1. Leer [AGENTS.md](AGENTS.md).
 2. Consultar [manifests/clipturbo-context.md](manifests/clipturbo-context.md).
@@ -33,12 +109,12 @@ Fase 1 implementada en este repo:
 
 ## Politica de tokens
 
-- memoria primero, contexto despues
+- memoria primero
+- contexto minimo
 - un solo subagente por defecto
-- abrir solo archivos criticos
 - resumir antes de expandir
-- reutilizar skills y manifiestos
-- evitar repetir reglas largas en varios archivos
+- reutilizar manifiestos y skills
+- evitar duplicacion de reglas
 
 Ver [manifests/token-policy.md](manifests/token-policy.md).
 
@@ -48,44 +124,17 @@ Toda decision relevante debe persistirse en dos capas:
 - repo local: [docs/lessons/README.md](docs/lessons/README.md)
 - memoria externa: Engram, basado en `https://github.com/Gentleman-Programming/engram`
 
-## Estructura
+## Hoja inmediata
 
-```text
-.
-├─ agents/
-├─ apps/
-├─ copilot/
-├─ docs/
-├─ manifests/
-├─ media/
-├─ packages/
-├─ public/
-├─ tasks/
-└─ tests/
-```
-
-## Compatibilidad de agentes
-
-- `Codex`: [AGENTS.md](AGENTS.md)
-- `Claude Code`: [CLAUDE.md](CLAUDE.md)
-- `GitHub Copilot`: [.github/copilot-instructions.md](.github/copilot-instructions.md)
-
-## Uso de modelos por rol
-
-La estrategia de modelos esta separada del prompt maestro para no contaminar cada interaccion:
-- [docs/prompts/model-routing.md](docs/prompts/model-routing.md)
-- [copilot/model-routing.md](copilot/model-routing.md)
+- modelar entidades base del dominio
+- definir contratos iniciales de providers
+- incorporar configuracion de entorno
+- conectar cola de trabajos
+- empezar pipeline de guion, voz y subtitulos en espanol
+- preparar publicacion asistida con borrador por defecto
 
 ## Validacion minima
 
 - `python -m pytest`
 - `ruff check .`
 - `mypy apps packages`
-
-## Backlog inicial
-
-1. Completar entidades y contratos del dominio.
-2. Definir proveedores reales de LLM, TTS, storage y publicacion.
-3. Añadir persistencia y cola de trabajos.
-4. Implementar trazabilidad y cumplimiento Spain-first.
-5. Expandir pipeline multimedia con FFmpeg.

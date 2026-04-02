@@ -3,7 +3,7 @@
 Construye ClipTurbo como producto nuevo, serio, Spain-first y Python-first.
 
 - crea, adapta y programa videos cortos en espanol
-- no copiar codigo de MoneyPrinter
+- no copiar codigo ni branding de terceros
 - disenar para single-user hoy y SaaS despues
 - backend con FastAPI, workers Python, Redis, PostgreSQL y FFmpeg
 - draft by default

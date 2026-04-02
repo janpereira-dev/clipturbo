@@ -48,7 +48,7 @@ Antes de abrir contexto nuevo:
 
 - Python-first
 - no frontend-first
-- no copiar codigo de MoneyPrinter
+- no copiar ni replicar codigo o branding de terceros
 - draft by default
 - human review first
 - providers desacoplados por interfaz

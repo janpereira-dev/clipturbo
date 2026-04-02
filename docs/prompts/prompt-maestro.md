@@ -8,7 +8,7 @@ Disenar y construir un producto nuevo para crear, adaptar, programar y publicar 
 
 ## Reglas no negociables
 
-- no es un fork de MoneyPrinter
+- no es un fork ni un clon de un proyecto tercero
 - no copiar codigo como base del negocio
 - Python-first
 - draft by default

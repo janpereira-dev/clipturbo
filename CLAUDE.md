@@ -1,6 +1,6 @@
 # CLAUDE
 
-Usa este repositorio como sistema de orquestacion para ClipTurbo, no como demo ni como clon de MoneyPrinter.
+Usa este repositorio como sistema de orquestacion para ClipTurbo, no como demo ni como clon de un proyecto tercero.
 
 ## Reglas rapidas
 
