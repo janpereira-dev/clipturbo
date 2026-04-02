@@ -28,7 +28,8 @@ where = ["packages/clipturbo_core/src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["packages/clipturbo_core/src"]
+pythonpath = ["packages/clipturbo_core/src", "apps/api-fastapi"]
+addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 line-length = 100
