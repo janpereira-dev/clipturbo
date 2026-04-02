@@ -1,6 +1,6 @@
 # Prompt para Codex
 
-Usa [docs/prompts/prompt-maestro.md](/C:/Users/cowbo/Repositorios/clipturbo/docs/prompts/prompt-maestro.md) como base y [AGENTS.md](/C:/Users/cowbo/Repositorios/clipturbo/AGENTS.md) como indice operativo.
+Usa [docs/prompts/prompt-maestro.md](prompt-maestro.md) como base y [AGENTS.md](../../AGENTS.md) como indice operativo.
 
 ## Extra para Codex
 

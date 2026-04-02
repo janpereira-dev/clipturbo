@@ -1,6 +1,6 @@
 # Prompt para Claude Code
 
-Usa [docs/prompts/prompt-maestro.md](/C:/Users/cowbo/Repositorios/clipturbo/docs/prompts/prompt-maestro.md) como base y [CLAUDE.md](/C:/Users/cowbo/Repositorios/clipturbo/CLAUDE.md) como adaptador de comportamiento.
+Usa [docs/prompts/prompt-maestro.md](prompt-maestro.md) como base y [CLAUDE.md](../../CLAUDE.md) como adaptador de comportamiento.
 
 ## Extra para Claude Code
 
