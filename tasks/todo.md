@@ -8,7 +8,10 @@
 - [x] modelar entidades base del dominio en Python con clases y validaciones
 - [x] definir contratos de providers y DTOs iniciales
 - [x] anadir configuracion base y settings
+- [x] implementar repositorios `in-memory` y `sqlite` para entidades de dominio
+- [x] implementar servicios de aplicacion para authoring, render, trazabilidad y publish
+- [x] implementar orquestador `prompt -> script -> audio -> subtitulos -> render -> publish`
 - [ ] incorporar pytest, ruff y mypy en CI
 - [x] implementar primer endpoint de salud y version
-- [ ] definir ComplianceReview en codigo (PromptTrace y AuditLog ya implementados)
+- [x] definir ComplianceReview en codigo (PromptTrace y AuditLog implementados)
 - [ ] preparar integracion real con Engram

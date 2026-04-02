@@ -5,15 +5,20 @@ from pydantic import ValidationError
 
 from clipturbo_core.domain import (
     ActorType,
+    AuditActor,
     AuditLog,
+    ComplianceReview,
     Locale,
-    PipelineStage,
     Project,
-    PromptTrace,
-    RenderFormat,
+    ProjectStatus,
+    PublishJob,
+    PublishJobStatus,
+    PublishPlatform,
     RenderJob,
     RenderJobStatus,
+    ScriptSourceType,
     ScriptVersion,
+    VersionNumber,
     VoiceGoal,
     VoiceProvider,
     default_voice_profiles,
@@ -21,63 +26,73 @@ from clipturbo_core.domain import (
 )
 
 
-def test_project_defaults_and_touch() -> None:
-    project = Project(workspace_id=uuid4(), title="  Proyecto inicial  ")
-    touched = project.touch()
+def test_project_activate_and_archive_flow() -> None:
+    project = Project(
+        owner_id=uuid4(),
+        workspace_id=uuid4(),
+        name="Proyecto Clips",
+    )
+    active = project.activate()
+    archived = active.archive()
 
-    assert project.title == "Proyecto inicial"
-    assert project.status.value == "draft"
-    assert touched.updated_at >= project.updated_at
-
-
-def test_script_version_rejects_short_script() -> None:
-    with pytest.raises(ValidationError):
-        ScriptVersion(
-            project_id=uuid4(),
-            hook_source="hook 1",
-            script_text="demasiado corto",
-            provider_name="openai",
-            provider_model="gpt-4.1-mini",
-        )
+    assert active.status == ProjectStatus.ACTIVE
+    assert archived.status == ProjectStatus.ARCHIVED
 
 
-def test_prompt_trace_rejects_hash_with_spaces() -> None:
-    with pytest.raises(ValidationError):
-        PromptTrace(
-            project_id=uuid4(),
-            stage=PipelineStage.SCRIPT_GENERATION,
-            provider_name="openai",
-            provider_model="gpt-4.1-mini",
-            prompt_hash="hash invalido",
-        )
-
-
-def test_render_job_retry_logic() -> None:
-    job = RenderJob(
+def test_script_version_generates_content_hash() -> None:
+    script = ScriptVersion(
         project_id=uuid4(),
-        script_version_id=uuid4(),
-        voice_profile_id=uuid4(),
-        render_format=RenderFormat.VERTICAL_9_16,
-        status=RenderJobStatus.FAILED,
-        attempts=1,
-        max_attempts=3,
+        version_number=VersionNumber(value=1),
+        title="Guion inicial",
+        content="Este es un contenido suficientemente largo para una version valida.",
+        source_type=ScriptSourceType.GENERATED,
+        created_by="agent",
     )
 
-    assert job.can_retry is True
+    assert len(script.content_hash or "") == 64
 
 
-def test_audit_log_minimum_shape() -> None:
-    entry = AuditLog(
+def test_render_job_completion_requires_output() -> None:
+    with pytest.raises(ValidationError):
+        RenderJob(
+            project_id=uuid4(),
+            script_version_id=uuid4(),
+            requested_by="user-1",
+            status=RenderJobStatus.COMPLETED,
+        )
+
+
+def test_publish_job_retry_path() -> None:
+    publish_job = PublishJob(
         project_id=uuid4(),
-        actor_type=ActorType.AGENT,
+        render_job_id=uuid4(),
+        target_platform=PublishPlatform.TIKTOK,
+        requested_by="user-1",
+        status=PublishJobStatus.FAILED,
+    )
+    failed = publish_job.mark_failed("upload_error", "network")
+    scheduled = failed.schedule_retry()
+
+    assert failed.can_retry is True
+    assert scheduled.status.value == "retry_scheduled"
+
+
+def test_audit_log_append_only_shape() -> None:
+    event = AuditLog(
+        project_id=uuid4(),
+        actor=AuditActor(actor_type=ActorType.AGENT, actor_id="agent-1"),
         action="render.retry",
-        target_type="render_job",
-        target_id="job-123",
+        entity_type="render_job",
+        entity_id="job-123",
         metadata={"reason": "timeout"},
     )
+    assert event.metadata["reason"] == "timeout"
 
-    assert entry.actor_type == ActorType.AGENT
-    assert entry.metadata["reason"] == "timeout"
+
+def test_compliance_review_reject_requires_issues() -> None:
+    review = ComplianceReview(project_id=uuid4(), target_type="render_job", target_id="job-1")
+    with pytest.raises(ValueError):
+        review.reject(issues=[], reviewer_type=ActorType.ADMIN)
 
 
 def test_voice_recommendation_for_windows_quality_goal() -> None:
@@ -94,7 +109,7 @@ def test_voice_recommendation_for_windows_quality_goal() -> None:
 
 def test_default_voice_profiles_include_spanish_piper_voices() -> None:
     voices = default_voice_profiles()
-    keys = {voice.voice_key for voice in voices if voice.provider_name == VoiceProvider.PIPER}
+    keys = {voice.provider_voice_id for voice in voices if voice.provider == VoiceProvider.PIPER}
 
     assert "es_ES-davefx-medium" in keys
     assert "es_ES-sharvard-medium" in keys
