@@ -19,3 +19,8 @@
 - trazabilidad por etapa
 - reintentos sin rehacer todo
 - FFmpeg como base de render
+- contratos estables entre pasos
+
+## Contrato relacionado
+
+Ver [docs/architecture/contrato-pipeline.md](contrato-pipeline.md).

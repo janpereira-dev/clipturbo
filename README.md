@@ -91,6 +91,13 @@ Esta fase implementa la base operativa del proyecto:
 - `docs/`: arquitectura, prompts, producto y runbooks
 - `manifests/`: reglas base del sistema
 
+## Ejecucion local
+
+- API: ejecutar `uvicorn app.main:app --reload` desde `apps/api-fastapi`
+- worker: ejecutar `python -m worker` desde `apps/worker-media`
+
+Los nombres de carpeta con guiones son deliberados para claridad organizativa; por eso los comandos de arranque se documentan por directorio de trabajo.
+
 ## Compatibilidad de agentes
 
 - `Codex`: [AGENTS.md](AGENTS.md)

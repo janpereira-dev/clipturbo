@@ -1,12 +1,41 @@
-from typing import Protocol
+from typing import Protocol, TypedDict
+
+
+class ProviderTrace(TypedDict):
+    provider_name: str
+    provider_model: str
+    request_id: str
+
+
+class GeneratedScript(TypedDict):
+    script_text: str
+    trace: ProviderTrace
+
+
+class SynthesizedAudio(TypedDict):
+    asset_path: str
+    duration_ms: int
+    trace: ProviderTrace
+
+
+class SubtitleSegment(TypedDict):
+    start_ms: int
+    end_ms: int
+    text: str
+
+
+class GeneratedSubtitles(TypedDict):
+    format: str
+    segments: list[SubtitleSegment]
+    trace: ProviderTrace
 
 
 class LLMProvider(Protocol):
-    def generate_text(self, prompt: str) -> str: ...
+    def generate_text(self, prompt: str) -> GeneratedScript: ...
 
 
 class TTSProvider(Protocol):
-    def synthesize(self, script: str, voice_id: str) -> str: ...
+    def synthesize(self, script: str, voice_id: str) -> SynthesizedAudio: ...
 
 
 class STTProvider(Protocol):
@@ -18,7 +47,7 @@ class AssetProvider(Protocol):
 
 
 class SubtitleProvider(Protocol):
-    def generate(self, script: str, audio_path: str) -> str: ...
+    def generate(self, script: str, audio_path: str) -> GeneratedSubtitles: ...
 
 
 class ThumbnailProvider(Protocol):
