@@ -37,20 +37,26 @@ Definir una estrategia inicial de proveedores y modelos que priorice calidad rea
 
 ### Nivel 1
 
-- `Azure Speech`
-  - buena cobertura para `es-ES`, `es-MX` y variantes latinas
-  - voces utiles para narracion neutra y comercial
-- `ElevenLabs`
-  - voces naturales para demos premium y contenido con mas expresividad
-- `Edge TTS`
-  - opcion ligera para desarrollo, pruebas y fallback economico
+- `MeloTTS`
+  - mejor balance local para espanol cuando se prioriza naturalidad
+  - si el entorno es Windows conviene ejecutar con Docker para evitar friccion
+- `Piper`
+  - opcion local, simple y estable para salir rapido en offline
+  - voces recomendadas: `es_ES-davefx-medium`, `es_ES-sharvard-medium`, `es_MX-claude-high`, `es_AR-daniela-high`
+- `XTTS-v2`
+  - opcion local cuando se prioriza calidad alta y clonacion de voz
+  - setup y coste operativo mas altos
 
 ### Nivel 2
 
+- `Azure Speech`
+  - buena cobertura para `es-ES`, `es-MX` y variantes latinas
+- `ElevenLabs`
+  - voces naturales para demos premium y contenido expresivo
+- `Edge TTS`
+  - fallback economico para desarrollo
 - `OpenAI TTS`
-  - evaluar cuando la calidad en espanol y coste encajen con el producto
-- `Piper`
-  - opcion local para ejecucion offline o control de infraestructura
+  - evaluar segun coste, latencia y calidad en espanol
 
 ## Perfiles de voz iniciales
 
@@ -71,3 +77,9 @@ Definir una estrategia inicial de proveedores y modelos que priorice calidad rea
 ## Regla de implementacion
 
 La v1 no debe integrar muchos proveedores a medias. Debe integrar pocos proveedores bien abstraidos y medibles.
+
+## Ranking practico local
+
+1. `MeloTTS` para mejor espanol local si aceptas setup mas pesado.
+2. `Piper` para simpleza offline y despliegue rapido.
+3. `XTTS-v2` para calidad alta y clonacion con mayor coste tecnico.

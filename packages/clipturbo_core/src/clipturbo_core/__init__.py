@@ -1,1 +1,41 @@
 """Paquete compartido de dominio y contratos de ClipTurbo."""
+
+from clipturbo_core.domain import (
+    ActorType,
+    AuditLog,
+    Locale,
+    PipelineStage,
+    Project,
+    ProjectStatus,
+    PromptTrace,
+    RenderFormat,
+    RenderJob,
+    RenderJobStatus,
+    ScriptVersion,
+    VoiceGoal,
+    VoiceProfile,
+    VoiceProvider,
+    VoiceStackRecommendation,
+    default_voice_profiles,
+    recommend_voice_stack,
+)
+
+__all__ = [
+    "ActorType",
+    "AuditLog",
+    "Locale",
+    "PipelineStage",
+    "Project",
+    "ProjectStatus",
+    "PromptTrace",
+    "RenderFormat",
+    "RenderJob",
+    "RenderJobStatus",
+    "ScriptVersion",
+    "VoiceGoal",
+    "VoiceProfile",
+    "VoiceProvider",
+    "VoiceStackRecommendation",
+    "default_voice_profiles",
+    "recommend_voice_stack",
+]
