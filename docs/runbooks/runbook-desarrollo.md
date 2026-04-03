@@ -33,8 +33,14 @@ Este comando ya ejecuta el pipeline Python del core para `prompt -> script -> au
 Tambien puedes lanzarlo desde raiz:
 
 ```bash
-python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --voice "Microsoft Laura" --publish-drafts
+python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --tts-engine auto --publish-drafts
 ```
+
+Modos de voz:
+
+- `--tts-engine loquendo`: Windows Speech (compatible, menos natural).
+- `--tts-engine fluido`: Edge Neural TTS (mas natural, requiere `edge-tts`).
+- `--tts-engine auto`: intenta fluido y cae a loquendo si falta dependencia.
 
 ## Antes de cerrar una tarea
 

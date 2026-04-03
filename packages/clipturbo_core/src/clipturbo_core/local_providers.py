@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -113,6 +114,76 @@ class WindowsSpeechTTSProvider:
             "duration_ms": int(duration_seconds * 1000),
             "trace": trace,
         }
+
+
+class EdgeNeuralTTSProvider:
+    def __init__(self, output_dir: str | Path, default_voice: str = "es-ES-AlvaroNeural") -> None:
+        self._output_dir = Path(output_dir)
+        self._output_dir.mkdir(parents=True, exist_ok=True)
+        self._default_voice = default_voice
+
+    def synthesize(self, script: str, voice_id: str) -> SynthesizedAudio:
+        voice = (voice_id or self._default_voice).strip()
+        output_path = self._output_dir / f"voice_{uuid4().hex}.mp3"
+
+        if edge_tts_available(python_only=True):
+            _synthesize_with_edge_python(script=script, voice=voice, output_path=output_path)
+        elif edge_tts_available(cli_only=True):
+            _run(
+                [
+                    "edge-tts",
+                    "--text",
+                    script,
+                    "--voice",
+                    voice,
+                    "--write-media",
+                    str(output_path),
+                ]
+            )
+        else:
+            raise RuntimeError(
+                "No se encontro edge-tts. Instala con `pip install edge-tts` para usar modo fluido."
+            )
+
+        duration_seconds = _ffprobe_duration_seconds(str(output_path))
+        trace: ProviderTrace = {
+            "provider_name": "edge_tts",
+            "provider_model": voice,
+            "request_id": f"tts_{uuid4().hex}",
+        }
+        return {
+            "asset_path": str(output_path),
+            "duration_ms": int(duration_seconds * 1000),
+            "trace": trace,
+        }
+
+
+def _has_edge_tts_python() -> bool:
+    try:
+        import edge_tts  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
+def edge_tts_available(*, python_only: bool = False, cli_only: bool = False) -> bool:
+    python_available = _has_edge_tts_python()
+    cli_available = bool(shutil.which("edge-tts"))
+    if python_only:
+        return python_available
+    if cli_only:
+        return cli_available
+    return python_available or cli_available
+
+
+def _synthesize_with_edge_python(script: str, voice: str, output_path: Path) -> None:
+    import edge_tts
+
+    async def _run_async() -> None:
+        communicate = edge_tts.Communicate(text=script, voice=voice)
+        await communicate.save(str(output_path))
+
+    asyncio.run(_run_async())
 
 
 class LocalSubtitleProvider:

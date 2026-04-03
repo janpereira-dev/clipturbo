@@ -26,19 +26,28 @@ from clipturbo_core import (
 )
 from clipturbo_core.in_memory_repositories import InMemoryRepositoryBundle
 from clipturbo_core.local_providers import (
+    EdgeNeuralTTSProvider,
     FFmpegVideoRenderProvider,
     LocalDraftPublisherProvider,
     LocalStorageProvider,
     LocalSubtitleProvider,
     RuleBasedSpanishLLMProvider,
     WindowsSpeechTTSProvider,
+    edge_tts_available,
 )
+from clipturbo_core.providers import TTSProvider
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Genera video vertical desde prompt base usando el core.")
     parser.add_argument("--topic", default="motivacion estoica", help="Tema principal del video.")
-    parser.add_argument("--voice", default="Microsoft Laura", help="Voz TTS instalada en Windows.")
+    parser.add_argument(
+        "--tts-engine",
+        default="auto",
+        choices=["auto", "fluido", "loquendo"],
+        help="auto: intenta voz neural y cae a loquendo; fluido: fuerza neural; loquendo: fuerza Windows Speech.",
+    )
+    parser.add_argument("--voice", default="", help="Voice ID especifico del motor seleccionado.")
     parser.add_argument(
         "--output-root",
         default="media/generated",
@@ -61,10 +70,15 @@ def main() -> None:
     project = Project(owner_id=uuid4(), workspace_id=uuid4(), name=f"Demo {args.topic.title()}")
     repos.projects.save(project)
 
+    tts_provider, voice_provider, voice_name = _build_tts_provider(
+        engine=args.tts_engine,
+        voice=args.voice,
+        audio_dir=output_root / "audio",
+    )
     voice_profile = VoiceProfile(
-        name=f"Windows {args.voice}",
-        provider=VoiceProvider.WINDOWS_SPEECH,
-        provider_voice_id=args.voice,
+        name=voice_name,
+        provider=voice_provider,
+        provider_voice_id=voice_name,
     )
     repos.voice_profiles.save(voice_profile)
 
@@ -93,7 +107,7 @@ def main() -> None:
         projects=repos.projects,
         voices=repos.voice_profiles,
         llm=RuleBasedSpanishLLMProvider(),
-        tts=WindowsSpeechTTSProvider(output_root / "audio", default_voice=args.voice),
+        tts=tts_provider,
         subtitles=subtitle_provider,
         video_renderer=FFmpegVideoRenderProvider(output_root / "videos", subtitle_provider),
         storage=LocalStorageProvider(output_root / "storage"),
@@ -121,6 +135,8 @@ def main() -> None:
 
     render_job = repos.render_jobs.get(result.render_job_id)
     summary = {
+        "tts_engine": args.tts_engine,
+        "voice_name": voice_name,
         "project_id": str(result.project_id),
         "script_version_id": str(result.script_version_id),
         "render_job_id": str(result.render_job_id),
@@ -131,6 +147,45 @@ def main() -> None:
     summary_path = output_root / "last_run.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=True, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=True, indent=2))
+
+
+def _build_tts_provider(
+    engine: str,
+    voice: str,
+    audio_dir: Path,
+) -> tuple[TTSProvider, VoiceProvider, str]:
+    loquendo_default = "Microsoft Laura"
+    fluido_default = "es-ES-AlvaroNeural"
+
+    if engine == "loquendo":
+        selected_voice = voice or loquendo_default
+        return (
+            WindowsSpeechTTSProvider(audio_dir, default_voice=selected_voice),
+            VoiceProvider.WINDOWS_SPEECH,
+            selected_voice,
+        )
+
+    if engine == "fluido":
+        selected_voice = voice or fluido_default
+        return (
+            EdgeNeuralTTSProvider(audio_dir, default_voice=selected_voice),
+            VoiceProvider.EDGE_TTS,
+            selected_voice,
+        )
+
+    if edge_tts_available():
+        selected_voice = voice or fluido_default
+        return (
+            EdgeNeuralTTSProvider(audio_dir, default_voice=selected_voice),
+            VoiceProvider.EDGE_TTS,
+            selected_voice,
+        )
+    selected_voice = loquendo_default
+    return (
+        WindowsSpeechTTSProvider(audio_dir, default_voice=selected_voice),
+        VoiceProvider.WINDOWS_SPEECH,
+        selected_voice,
+    )
 
 
 if __name__ == "__main__":
