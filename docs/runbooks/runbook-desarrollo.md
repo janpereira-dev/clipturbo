@@ -28,7 +28,13 @@ Ejecutar desde `apps/worker-media`:
 python -m worker
 ```
 
-Este comando es placeholder operativo hasta que exista un entrypoint real de jobs.
+Este comando ya ejecuta el pipeline Python del core para `prompt -> script -> audio -> subtitulos -> render -> publish`.
+
+Tambien puedes lanzarlo desde raiz:
+
+```bash
+python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --voice "Microsoft Laura" --publish-drafts
+```
 
 ## Antes de cerrar una tarea
 

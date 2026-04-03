@@ -89,6 +89,7 @@ class VoiceProvider(str, Enum):
     PIPER = "piper"
     MELO_TTS = "melo_tts"
     XTTS_V2 = "xtts_v2"
+    WINDOWS_SPEECH = "windows_speech"
     AZURE_SPEECH = "azure_speech"
     ELEVENLABS = "elevenlabs"
     EDGE_TTS = "edge_tts"

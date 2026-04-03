@@ -317,6 +317,7 @@ class RenderExecutionService:
             update={
                 "id": uuid4(),
                 "status": RenderJobStatus.QUEUED,
+                "attempt_count": scheduled.attempt_count,
                 "queued_at": utc_now(),
                 "started_at": None,
                 "finished_at": None,
