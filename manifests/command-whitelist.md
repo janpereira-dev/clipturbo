@@ -13,7 +13,7 @@
 - `python -m pip list`
 - `python -m pip install -e .[dev]`
 - `python -m pip install transformers sentencepiece torch`
-- `python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --tts-engine auto --correction-engine auto --publish-drafts`
+- `python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --script-engine auto --tts-engine auto --correction-engine auto --publish-drafts`
 
 ## Calidad
 

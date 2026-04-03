@@ -37,3 +37,12 @@ Usa este formato para registrar patrones repetidos.
 - correccion aplicada: enviar solo texto plano al corrector HF y agregar limpieza de artefactos (`Corrige...`, `Texto:`) antes del guard de ortografia.
 - regla aprendida: para modelos spellchecker, evitar prompts largos de instruccion en inferencia de produccion.
 - impacto: el pipeline vuelve a generar audio/subtitulos sin contaminarse con metainstrucciones.
+
+## 2026-04-03 - guion topic-driven con filtro de calidad
+
+- fecha: 2026-04-03
+- contexto: el topic cambiaba pero el guion salia casi igual o con eco de prompt.
+- error o friccion: generacion HF devolvia texto pobre o metainstrucciones para temas sensibles.
+- correccion aplicada: agregar `script-engine auto|hf|rule`, quality-gate de salida HF y fallback `topic_guided_v1` generado desde topic con normalizacion de temas sensibles.
+- regla aprendida: en topics sensibles, rechazar autodefiniciones dañinas y reescribir hacia lenguaje operativo y accionable.
+- impacto: el guion ahora depende del topic y el pipeline reporta si uso HF puro o fallback.

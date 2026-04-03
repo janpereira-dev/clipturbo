@@ -16,6 +16,12 @@ class SpanishOrthographyGuard:
         ("pequea", "pequeña"),
         ("manana", "mañana"),
         ("maana", "mañana"),
+        ("sensacion", "sensación"),
+        ("senal", "señal"),
+        ("seal", "señal"),
+        ("util", "útil"),
+        ("minima", "mínima"),
+        ("terminala", "termínala"),
         ("dificil", "difícil"),
         ("aprobacion", "aprobación"),
         ("enfocate", "enfócate"),
@@ -41,10 +47,15 @@ class SpanishOrthographyGuard:
         "pequena",
         "manana",
         "maana",
+        "sensacion",
+        "senal",
+        "seal",
         "dificil",
         "aprobacion",
         "enfocate",
         "pequea",
+        "minima",
+        "terminala",
     )
 
     def process(self, text: str) -> str:

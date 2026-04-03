@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import importlib
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
 from uuid import uuid4
 
 from clipturbo_core.domain import PublishPlatform, RenderFormat
@@ -80,15 +84,7 @@ class RuleBasedSpanishLLMProvider:
 
     def generate_text(self, prompt: str) -> GeneratedScript:
         topic = self._extract_topic(prompt)
-        lines = [
-            f"No esperes el momento perfecto para {topic}. Empieza con lo que tienes.",
-            "La dificultad no es una excusa. Es la escuela del carácter.",
-            "Domina tu reacción y dominarás tu día.",
-            "Cada decisión pequeña construye tu identidad.",
-            "La disciplina de hoy es la libertad de mañana.",
-            "No busques aplausos. Busca coherencia.",
-            "Respira, enfócate y da el siguiente paso.",
-        ]
+        lines = _build_topic_guided_lines(topic)
         correction = self._text_corrector.correct(" ".join(lines))
         self._last_correction = correction
         script_text = correction.text
@@ -108,6 +104,303 @@ class RuleBasedSpanishLLMProvider:
             return "tu objetivo"
         topic = prompt[index + len(marker) :].strip().rstrip(".")
         return topic or "tu objetivo"
+
+
+class HuggingFaceSpanishLLMProvider:
+    def __init__(
+        self,
+        model_id: str,
+        max_new_tokens: int = 220,
+        text_corrector: SpanishTextCorrector | None = None,
+        allow_fallback: bool = True,
+    ) -> None:
+        self._model_id = model_id
+        self._max_new_tokens = max_new_tokens
+        self._text_corrector = text_corrector or RuleBasedSpanishCorrector()
+        self._allow_fallback = allow_fallback
+        self._runtime: dict[str, object] | None = None
+
+    def generate_text(self, prompt: str) -> GeneratedScript:
+        topic = RuleBasedSpanishLLMProvider._extract_topic(prompt)
+        model_prompt = _build_generation_prompt(topic)
+        try:
+            cleaned = self._generate_validated_script(model_prompt=model_prompt, topic=topic)
+            correction = self._text_corrector.correct(cleaned)
+            script_text = correction.text
+            provider_name = "hf_local_generation"
+            provider_model = f"{self._model_id}|correction:{correction.engine}:{correction.model}"
+        except Exception:
+            if not self._allow_fallback:
+                raise
+            fallback_lines = _build_topic_guided_lines(topic)
+            correction = self._text_corrector.correct(" ".join(fallback_lines))
+            script_text = correction.text
+            provider_name = "hf_local_generation_fallback"
+            provider_model = f"topic_guided_v1|correction:{correction.engine}:{correction.model}"
+
+        trace: ProviderTrace = {
+            "provider_name": provider_name,
+            "provider_model": provider_model,
+            "request_id": f"llm_{uuid4().hex}",
+        }
+        return {"script_text": script_text, "trace": trace}
+
+    def _generate_validated_script(self, model_prompt: str, topic: str) -> str:
+        first_raw = self._generate(model_prompt=model_prompt, topic=topic)
+        first_clean = _clean_generated_script(first_raw, model_prompt)
+        try:
+            _validate_generated_script(first_clean, topic)
+            return first_clean
+        except Exception:
+            retry_prompt = _build_generation_prompt_retry(topic)
+            second_raw = self._generate(model_prompt=retry_prompt, topic=topic)
+            second_clean = _clean_generated_script(second_raw, retry_prompt)
+            _validate_generated_script(second_clean, topic)
+            return second_clean
+
+    def _generate(self, model_prompt: str, topic: str) -> str:
+        runtime = self._get_runtime()
+        tokenizer = runtime["tokenizer"]
+        model = runtime["model"]
+        torch_module = runtime["torch_module"]
+        mode = runtime["mode"]
+
+        if mode == "causal":
+            encoded = _encode_causal_prompt(tokenizer=tokenizer, topic=topic, user_prompt=model_prompt)
+        else:
+            encoded = tokenizer(  # type: ignore[operator]
+                model_prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=1024,
+            )
+        with torch_module.no_grad():  # type: ignore[attr-defined]
+            output_ids = model.generate(  # type: ignore[operator]
+                **encoded,
+                max_new_tokens=self._max_new_tokens,
+                do_sample=True,
+                temperature=0.8,
+                top_p=0.9,
+                repetition_penalty=1.1,
+                num_beams=1 if mode == "causal" else 3,
+            )
+
+        if mode == "causal":
+            input_length = encoded["input_ids"].shape[1]
+            output_ids = output_ids[:, input_length:]
+
+        decoded = tokenizer.decode(output_ids[0], skip_special_tokens=True)  # type: ignore[operator]
+        return decoded.strip()
+
+    def _get_runtime(self) -> dict[str, object]:
+        if self._runtime is not None:
+            return self._runtime
+        transformers_module, torch_module = _load_transformers_runtime()
+        auto_tokenizer = getattr(transformers_module, "AutoTokenizer")
+        tokenizer = auto_tokenizer.from_pretrained(self._model_id)
+
+        model: object
+        mode: str
+        try:
+            auto_seq2seq = getattr(transformers_module, "AutoModelForSeq2SeqLM")
+            model = auto_seq2seq.from_pretrained(self._model_id)
+            mode = "seq2seq"
+        except Exception:
+            auto_causal = getattr(transformers_module, "AutoModelForCausalLM")
+            model = auto_causal.from_pretrained(self._model_id)
+            mode = "causal"
+
+        model.eval()  # type: ignore[operator]
+        self._runtime = {
+            "tokenizer": tokenizer,
+            "model": model,
+            "torch_module": torch_module,
+            "mode": mode,
+        }
+        return self._runtime
+
+
+def huggingface_generation_available() -> bool:
+    try:
+        _load_transformers_runtime()
+    except Exception:
+        return False
+    return True
+
+
+def _load_transformers_runtime() -> tuple[ModuleType, ModuleType]:
+    try:
+        transformers_module = importlib.import_module("transformers")
+        torch_module = importlib.import_module("torch")
+    except Exception as exc:
+        raise RuntimeError(
+            "No se pudo importar transformers/torch para generacion HF. "
+            "Instala dependencias: python -m pip install transformers sentencepiece torch"
+        ) from exc
+    return transformers_module, torch_module
+
+
+def _build_topic_guided_lines(topic: str) -> list[str]:
+    clean_topic = topic.strip()
+    normalized_topic = _normalize_topic_for_script(clean_topic)
+    seed = int(hashlib.sha256(clean_topic.encode("utf-8")).hexdigest()[:8], 16)
+    rng = random.Random(seed)
+
+    openers = [
+        "Hoy puedes mirar",
+        "Ahora te toca observar",
+        "En este momento conviene enfrentar",
+        "Tu primer paso es reconocer",
+    ]
+    reframes = [
+        "sin convertirlo en tu identidad.",
+        "sin dejar que te defina por completo.",
+        "como un estado temporal, no como destino.",
+        "como una señal que puedes gestionar con método.",
+    ]
+    breath_actions = [
+        "Respira cuatro segundos, exhala seis y baja el ritmo interno.",
+        "Haz una pausa breve: inhala profundo, exhala lento y vuelve al presente.",
+        "Detén la prisa mental con tres respiraciones largas y conscientes.",
+    ]
+    focus_actions = [
+        "Elige una tarea de diez minutos y complétala antes de evaluar tu día.",
+        "Define una acción mínima y termínala sin negociar contigo.",
+        "Empieza por un bloque corto y deja que el impulso trabaje a tu favor.",
+    ]
+    discipline_lines = [
+        "La disciplina no elimina el dolor, pero sí evita que mande sobre tu agenda.",
+        "La constancia no exige perfección; exige volver a intentarlo hoy.",
+        "El progreso nace cuando decides actuar incluso con incomodidad.",
+    ]
+    perspective_lines = [
+        "No necesitas resolverlo todo ahora: necesitas sostener el siguiente paso.",
+        "No busques aplausos rápidos; busca evidencia diaria de avance real.",
+        "No esperes motivación perfecta; construye estabilidad con rutina simple.",
+    ]
+    closing_lines = [
+        "Haz lo que depende de ti hoy y deja que mañana encuentre a alguien más fuerte.",
+        "Suma una victoria pequeña hoy y tu narrativa empezará a cambiar.",
+        "Acción sobria, foco diario y paciencia: así recuperas el control.",
+    ]
+
+    return [
+        f"{rng.choice(openers)} {normalized_topic} {rng.choice(reframes)}",
+        f"Cuando aparezca {normalized_topic}, {rng.choice(breath_actions)}",
+        f"Convierte {normalized_topic} en dirección práctica: {rng.choice(focus_actions)}",
+        rng.choice(discipline_lines),
+        rng.choice(perspective_lines),
+        f"Cada paso constante reduce el peso de {normalized_topic} sobre tus decisiones.",
+        rng.choice(closing_lines),
+    ]
+
+
+def _build_generation_prompt(topic: str) -> str:
+    return (
+        "Escribe un guion breve en espanol para un video vertical de 30 a 45 segundos (90 a 130 palabras). "
+        f"Tema: {topic}. "
+        "Tono: motivacion estoica, claro y directo. "
+        "Formato: 7 frases cortas en un solo parrafo. "
+        "No incluyas encabezados, no listas, no hashtags, no emojis."
+    )
+
+
+def _build_generation_prompt_retry(topic: str) -> str:
+    return (
+        f"Genera un guion final en espanol sobre {topic}. "
+        "Debe tener 7 frases completas, 90 a 130 palabras, tono estoico y lenguaje claro. "
+        "No incluyas instrucciones, solo el guion final."
+    )
+
+
+def _encode_causal_prompt(tokenizer: object, topic: str, user_prompt: str) -> dict[str, object]:
+    if hasattr(tokenizer, "apply_chat_template"):
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Eres un redactor experto en guiones cortos en espanol para redes sociales. "
+                    "Responde siempre con texto final publicable."
+                ),
+            },
+            {"role": "user", "content": user_prompt},
+        ]
+        rendered = tokenizer.apply_chat_template(  # type: ignore[operator]
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        return tokenizer(  # type: ignore[operator]
+            rendered,
+            return_tensors="pt",
+            truncation=True,
+            max_length=1024,
+        )
+    return tokenizer(  # type: ignore[operator]
+        f"{user_prompt}\nTema real: {topic}\nGuion final:",
+        return_tensors="pt",
+        truncation=True,
+        max_length=1024,
+    )
+
+
+def _clean_generated_script(text: str, model_prompt: str) -> str:
+    cleaned = text.strip()
+    if cleaned.lower().startswith(model_prompt.lower()):
+        cleaned = cleaned[len(model_prompt) :].strip()
+    cleaned = cleaned.strip("\"'`")
+    cleaned = re.sub(r"^(guion|script)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"^[\-\*\d\.\)\s]+", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        raise RuntimeError("El modelo HF devolvio salida vacia")
+    return cleaned
+
+
+def _validate_generated_script(text: str, topic: str) -> None:
+    lowered = text.lower()
+    topic_lower = topic.lower().strip()
+    if len(text.split()) < 20:
+        raise RuntimeError("Salida HF demasiado corta para guion operativo")
+    forbidden = (
+        "escribe un guion",
+        "tema:",
+        "tono:",
+        "formato:",
+        "solo el guion",
+    )
+    if any(token in lowered for token in forbidden):
+        raise RuntimeError("Salida HF contiene metainstrucciones")
+
+    if "**" in text or "#" in text:
+        raise RuntimeError("Salida HF contiene formato no editorial")
+
+    sentence_candidates = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
+    if len(sentence_candidates) < 6:
+        raise RuntimeError("Salida HF con pocas frases completas")
+
+    if topic_lower.startswith("soy ") and topic_lower in lowered:
+        raise RuntimeError("Salida HF repite autodefinicion sensible del topic")
+
+    topic_terms = [t for t in re.findall(r"[a-záéíóúñü]{4,}", topic.lower()) if t not in {"sobre"}]
+    if topic_terms and not any(term in lowered for term in topic_terms):
+        raise RuntimeError("Salida HF sin relacion visible con el topic")
+
+
+def _normalize_topic_for_script(topic: str) -> str:
+    raw = topic.strip().lower()
+    replacements = {
+        "soy un depresivo": "la sensacion de tristeza profunda",
+        "soy depresivo": "la sensacion de tristeza profunda",
+        "depresion": "la depresion",
+        "ansiedad": "la ansiedad",
+    }
+    for key, value in replacements.items():
+        if raw == key:
+            return value
+    if raw.startswith("soy "):
+        return f"ese estado de {topic.strip()[4:]}"
+    return topic.strip()
 
 
 class WindowsSpeechTTSProvider:

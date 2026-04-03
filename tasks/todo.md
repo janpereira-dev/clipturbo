@@ -12,6 +12,7 @@
 - [x] implementar servicios de aplicacion para authoring, render, trazabilidad y publish
 - [x] implementar orquestador `prompt -> script -> audio -> subtitulos -> render -> publish`
 - [x] integrar corrector ortografico/gramatical en espanol con motor `guard|hf|auto`
+- [x] generar guiones topic-driven con `script-engine auto|hf|rule` y quality gate anti-prompt
 - [ ] incorporar pytest, ruff y mypy en CI
 - [x] implementar primer endpoint de salud y version
 - [x] definir ComplianceReview en codigo (PromptTrace y AuditLog implementados)

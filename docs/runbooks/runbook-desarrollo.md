@@ -33,8 +33,19 @@ Este comando ya ejecuta el pipeline Python del core para `prompt -> script -> au
 Tambien puedes lanzarlo desde raiz:
 
 ```bash
-python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --tts-engine auto --correction-engine auto --publish-drafts
+python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --script-engine auto --tts-engine auto --correction-engine auto --publish-drafts
 ```
+
+Generacion de guion desde topic:
+
+- `--script-engine hf`: fuerza generacion con modelo Hugging Face.
+- `--script-engine rule`: generacion local por reglas (fallback).
+- `--script-engine auto`: intenta HF y cae a rule.
+- revisa `resolved_script_provider` en el JSON final para confirmar si fue `hf_local_generation` o `hf_local_generation_fallback`.
+
+Modelo por defecto de guion:
+
+- `Qwen/Qwen2.5-0.5B-Instruct` (puedes cambiarlo con `--script-model`).
 
 Modos de voz:
 
@@ -58,6 +69,12 @@ Ejemplo con modelo en espanol:
 
 ```bash
 python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --tts-engine fluido --voice "es-ES-AlvaroNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000" --publish-drafts
+```
+
+Ejemplo full HF (guion + correccion):
+
+```bash
+python apps/worker-media/worker/run_prompt_video.py --topic "soy un depresivo" --script-engine hf --script-model "Qwen/Qwen2.5-0.5B-Instruct" --tts-engine fluido --voice "es-ES-AlvaroNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000" --publish-drafts
 ```
 
 Modelos sugeridos para `--correction-model`:

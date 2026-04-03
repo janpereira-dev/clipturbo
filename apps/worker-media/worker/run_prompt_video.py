@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
+import re
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -29,14 +30,16 @@ from clipturbo_core.in_memory_repositories import InMemoryRepositoryBundle
 from clipturbo_core.local_providers import (
     EdgeNeuralTTSProvider,
     FFmpegVideoRenderProvider,
+    HuggingFaceSpanishLLMProvider,
     LocalDraftPublisherProvider,
     LocalStorageProvider,
     LocalSubtitleProvider,
     RuleBasedSpanishLLMProvider,
     WindowsSpeechTTSProvider,
     edge_tts_available,
+    huggingface_generation_available,
 )
-from clipturbo_core.providers import TTSProvider
+from clipturbo_core.providers import LLMProvider, TTSProvider
 from clipturbo_core.text_correction import (
     AutoSpanishCorrector,
     HuggingFaceSpanishCorrector,
@@ -49,6 +52,17 @@ from clipturbo_core.text_correction import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Genera video vertical desde prompt base usando el core.")
     parser.add_argument("--topic", default="motivacion estoica", help="Tema principal del video.")
+    parser.add_argument(
+        "--script-engine",
+        default="auto",
+        choices=["auto", "hf", "rule"],
+        help="auto: intenta generacion HF y cae a generacion local por reglas.",
+    )
+    parser.add_argument(
+        "--script-model",
+        default="Qwen/Qwen2.5-0.5B-Instruct",
+        help="Modelo Hugging Face para generar guion desde el topic.",
+    )
     parser.add_argument(
         "--tts-engine",
         default="auto",
@@ -111,6 +125,11 @@ def main() -> None:
         engine=args.correction_engine,
         model=args.correction_model,
     )
+    llm_provider = _build_llm_provider(
+        engine=args.script_engine,
+        model=args.script_model,
+        text_corrector=correction_provider,
+    )
     voice_profile = VoiceProfile(
         name=voice_name,
         provider=voice_provider,
@@ -142,7 +161,7 @@ def main() -> None:
         publish=publish_service,
         projects=repos.projects,
         voices=repos.voice_profiles,
-        llm=RuleBasedSpanishLLMProvider(text_corrector=correction_provider),
+        llm=llm_provider,
         tts=tts_provider,
         subtitles=subtitle_provider,
         video_renderer=FFmpegVideoRenderProvider(output_root / "videos", subtitle_provider),
@@ -170,13 +189,35 @@ def main() -> None:
     )
 
     render_job = repos.render_jobs.get(result.render_job_id)
+    script_version = repos.script_versions.get(result.script_version_id)
     llm_provider = pipeline.llm
+    script_provider_name = script_version.provider_name if script_version else "n/a"
+    script_engine_resolved = "n/a"
+    script_model_resolved = "n/a"
     correction_engine_resolved = "n/a"
     correction_model_resolved = "n/a"
     if isinstance(llm_provider, RuleBasedSpanishLLMProvider):
+        script_engine_resolved = "rule"
+        script_model_resolved = "topic_guided_v1"
         correction_engine_resolved = llm_provider.last_correction_engine
         correction_model_resolved = llm_provider.last_correction_model
+    elif isinstance(llm_provider, HuggingFaceSpanishLLMProvider):
+        script_engine_resolved = "hf"
+        script_model_resolved = args.script_model
+
+    if script_version and script_version.provider_model:
+        match = re.search(r"\|correction:([^:]+):(.+)$", script_version.provider_model)
+        if match:
+            correction_engine_resolved = match.group(1)
+            correction_model_resolved = match.group(2)
+    if script_provider_name == "hf_local_generation_fallback":
+        script_engine_resolved = "rule_fallback"
+        script_model_resolved = "topic_guided_v1"
     summary = {
+        "script_engine": args.script_engine,
+        "resolved_script_provider": script_provider_name,
+        "resolved_script_engine": script_engine_resolved,
+        "resolved_script_model": script_model_resolved,
         "tts_engine": args.tts_engine,
         "resolved_tts_provider": voice_provider.value,
         "voice_name": voice_name,
@@ -254,6 +295,35 @@ def _build_correction_provider(engine: str, model: str) -> SpanishTextCorrector:
     return RuleBasedSpanishCorrector()
 
 
+def _build_llm_provider(
+    engine: str,
+    model: str,
+    text_corrector: SpanishTextCorrector,
+) -> LLMProvider:
+    if engine == "rule":
+        return RuleBasedSpanishLLMProvider(text_corrector=text_corrector)
+
+    if engine == "hf":
+        if not huggingface_generation_available():
+            raise RuntimeError(
+                "Modo script hf requiere dependencias. Instala: "
+                "python -m pip install transformers sentencepiece torch"
+            )
+        return HuggingFaceSpanishLLMProvider(
+            model_id=model,
+            text_corrector=text_corrector,
+            allow_fallback=True,
+        )
+
+    if huggingface_generation_available():
+        return HuggingFaceSpanishLLMProvider(
+            model_id=model,
+            text_corrector=text_corrector,
+            allow_fallback=True,
+        )
+    return RuleBasedSpanishLLMProvider(text_corrector=text_corrector)
+
+
 def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> None:
     lessons_path = REPO_ROOT / "docs" / "lessons" / "pipeline-runs.md"
     lessons_path.parent.mkdir(parents=True, exist_ok=True)
@@ -261,6 +331,9 @@ def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> 
     lines = [
         f"## Run {timestamp}",
         f"- topic: {args.topic}",
+        f"- script_provider: {summary['resolved_script_provider']}",
+        f"- script_engine: {summary['resolved_script_engine']}",
+        f"- script_model: {summary['resolved_script_model']}",
         f"- tts_engine: {summary['tts_engine']}",
         f"- voice_name: {summary['voice_name']}",
         f"- correction_engine: {summary['resolved_correction_engine']}",
