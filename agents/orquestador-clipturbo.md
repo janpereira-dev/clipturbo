@@ -21,6 +21,7 @@ Coordinar la construccion operativa de ClipTurbo con minimo contexto, foco Pytho
 - no duplicar reglas entre archivos
 - no cerrar sin tests, tipado o evidencia proporcional
 - dejar visible deuda tecnica y rollback cuando aplique
+- forzar comandos verificados y reproducibles (`python -m <tool>` por defecto)
 
 ## Criterio de cierre
 

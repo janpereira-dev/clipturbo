@@ -1,5 +1,7 @@
 from typing import Protocol, TypedDict
 
+from clipturbo_core.domain import PublishPlatform, RenderFormat
+
 
 class ProviderTrace(TypedDict):
     provider_name: str
@@ -30,6 +32,18 @@ class GeneratedSubtitles(TypedDict):
     trace: ProviderTrace
 
 
+class RenderedVideo(TypedDict):
+    asset_path: str
+    duration_ms: int
+    trace: ProviderTrace
+
+
+class PublishResult(TypedDict):
+    external_post_id: str
+    external_url: str
+    trace: ProviderTrace
+
+
 class LLMProvider(Protocol):
     def generate_text(self, prompt: str) -> GeneratedScript: ...
 
@@ -50,12 +64,27 @@ class SubtitleProvider(Protocol):
     def generate(self, script: str, audio_path: str) -> GeneratedSubtitles: ...
 
 
+class VideoRenderProvider(Protocol):
+    def compose(
+        self,
+        script: str,
+        audio_path: str,
+        subtitles: GeneratedSubtitles,
+        render_format: RenderFormat,
+    ) -> RenderedVideo: ...
+
+
 class ThumbnailProvider(Protocol):
     def render(self, title: str) -> str: ...
 
 
 class PublisherProvider(Protocol):
-    def publish_draft(self, asset_path: str, metadata: dict[str, str]) -> str: ...
+    def publish_draft(
+        self,
+        platform: PublishPlatform,
+        asset_path: str,
+        metadata: dict[str, str],
+    ) -> PublishResult: ...
 
 
 class StorageProvider(Protocol):

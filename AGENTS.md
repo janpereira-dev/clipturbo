@@ -33,6 +33,7 @@ Antes de abrir contexto nuevo:
 - [agents/subagente-revision-procesos.md](agents/subagente-revision-procesos.md): revision de flujo y operacion
 - [agents/subagente-orquestador-documentacion.md](agents/subagente-orquestador-documentacion.md): consistencia documental
 - [agents/subagente-guardarrailes-formato.md](agents/subagente-guardarrailes-formato.md): formato, tono y plantillas
+- [agents/subagente-bitacora-memoria.md](agents/subagente-bitacora-memoria.md): trazabilidad de cambios y memoria operativa
 
 ## Cuando usar cada uno
 
@@ -54,6 +55,14 @@ Antes de abrir contexto nuevo:
 - providers desacoplados por interfaz
 - validacion proporcional al riesgo
 - no mezclar dominios no relacionados en la misma tarea
+- cierre obligatorio con memoria en `docs/lessons/` y Engram
+- nada de vocabulario, guiones o dialectos quemados en codigo: todo contenido editorial se genera en runtime con modelo
+
+## Regla de comandos
+
+- solo documentar comandos verificados y ejecutables en el entorno objetivo
+- preferir `python -m <tool>` sobre binarios directos
+- si hay duda, comprobar con `--help` antes de recomendar
 
 ## Tokens
 

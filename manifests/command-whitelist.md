@@ -12,11 +12,13 @@
 - `python -m pytest`
 - `python -m pip list`
 - `python -m pip install -e .[dev]`
+- `python -m pip install transformers sentencepiece torch`
+- `python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --script-engine auto --tts-engine auto --correction-engine auto --publish-drafts`
 
 ## Calidad
 
-- `ruff check .`
-- `mypy apps packages`
+- `python -m ruff check .`
+- `python -m mypy apps packages`
 
 ## Infra
 

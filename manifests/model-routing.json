@@ -1,0 +1,230 @@
+{
+  "version": "1.1",
+  "default_locale": "es-ES",
+  "default_register": "neutral",
+  "routes": {
+    "es-ES": {
+      "neutral": {
+        "register": "neutral",
+        "script_model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-1.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e",
+          "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-ES-AlvaroNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "cercano": {
+        "register": "cercano",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+          "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-ES-AlvaroNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "profesional": {
+        "register": "profesional",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e",
+          "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-ES-AlvaroNeural",
+        "loquendo_voice": "Microsoft Laura"
+      }
+    },
+    "es-VE": {
+      "neutral": {
+        "register": "neutral",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "cercano": {
+        "register": "cercano",
+        "script_model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-1.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "profesional": {
+        "register": "profesional",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      }
+    },
+    "es-CO": {
+      "neutral": {
+        "register": "neutral",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "cercano": {
+        "register": "cercano",
+        "script_model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-1.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "profesional": {
+        "register": "profesional",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      }
+    },
+    "es-EC": {
+      "neutral": {
+        "register": "neutral",
+        "script_model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-1.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "cercano": {
+        "register": "cercano",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "profesional": {
+        "register": "profesional",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      }
+    },
+    "es-PR": {
+      "neutral": {
+        "register": "neutral",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "cercano": {
+        "register": "cercano",
+        "script_model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-1.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      },
+      "profesional": {
+        "register": "profesional",
+        "script_model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "script_model_fallbacks": [
+          "Qwen/Qwen2.5-0.5B-Instruct"
+        ],
+        "correction_model": "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e",
+        "correction_model_fallbacks": [
+          "jorgeortizfuentes/spanish-spellchecker-flan-t5-large_3e"
+        ],
+        "tts_engine": "auto",
+        "fluido_voice": "es-MX-DaliaNeural",
+        "loquendo_voice": "Microsoft Laura"
+      }
+    }
+  }
+}

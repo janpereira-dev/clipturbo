@@ -5,10 +5,18 @@
 - [x] redactar prompt maestro y version ejecutiva
 - [x] definir politica de tokens y memoria
 - [x] crear esqueleto Python para `api`, `worker` y `core`
-- [ ] modelar entidades base del dominio en Python con clases y validaciones
+- [x] modelar entidades base del dominio en Python con clases y validaciones
 - [x] definir contratos de providers y DTOs iniciales
 - [x] anadir configuracion base y settings
+- [x] implementar repositorios `in-memory` y `sqlite` para entidades de dominio
+- [x] implementar servicios de aplicacion para authoring, render, trazabilidad y publish
+- [x] implementar orquestador `prompt -> script -> audio -> subtitulos -> render -> publish`
+- [x] integrar corrector ortografico/gramatical en espanol con motor `guard|hf|auto`
+- [x] generar guiones topic-driven con `script-engine auto|hf` y quality gate anti-prompt
+- [x] aplicar guardrail "nada quemado en codigo" para guion/correccion y test de verificacion
+- [x] implementar routing por `locale+registro` para script/correccion/voz desde manifiesto (`es-ES`, `es-VE`, `es-CO`, `es-EC`, `es-PR`)
+- [x] agregar fallback de modelos HF ante `401/gated` para guion y correccion con error accionable
 - [ ] incorporar pytest, ruff y mypy en CI
 - [x] implementar primer endpoint de salud y version
-- [ ] definir PromptTrace, AuditLog y ComplianceReview en codigo
+- [x] definir ComplianceReview en codigo (PromptTrace y AuditLog implementados)
 - [ ] preparar integracion real con Engram

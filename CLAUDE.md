@@ -10,6 +10,8 @@ Usa este repositorio como sistema de orquestacion para ClipTurbo, no como demo n
 - no repitas normas extensas si ya existen en `manifests/`
 - documenta toda decision durable en `docs/lessons/` y en Engram
 - valida cambios con tests, lint o evidencia tecnica proporcional al riesgo
+- usa comandos verificados; preferir `python -m <tool>` y validar con `--help` si hay duda
+- nada de guiones, vocabulario o dialectos quemados en codigo; contenido editorial siempre generado en runtime
 
 ## Flujo recomendado
 
