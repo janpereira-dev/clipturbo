@@ -34,7 +34,6 @@ from clipturbo_core.local_providers import (
     LocalDraftPublisherProvider,
     LocalStorageProvider,
     LocalSubtitleProvider,
-    RuleBasedSpanishLLMProvider,
     WindowsSpeechTTSProvider,
     edge_tts_available,
     huggingface_generation_available,
@@ -43,7 +42,7 @@ from clipturbo_core.providers import LLMProvider, TTSProvider
 from clipturbo_core.text_correction import (
     AutoSpanishCorrector,
     HuggingFaceSpanishCorrector,
-    RuleBasedSpanishCorrector,
+    NoOpSpanishCorrector,
     SpanishTextCorrector,
     huggingface_correction_available,
 )
@@ -55,8 +54,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--script-engine",
         default="auto",
-        choices=["auto", "hf", "rule"],
-        help="auto: intenta generacion HF y cae a generacion local por reglas.",
+        choices=["auto", "hf"],
+        help="auto: generacion HF con reintentos y recovery; hf: fuerza HF.",
     )
     parser.add_argument(
         "--script-model",
@@ -84,7 +83,7 @@ def parse_args() -> argparse.Namespace:
         "--correction-engine",
         default="auto",
         choices=["auto", "guard", "hf"],
-        help="guard: reglas locales; hf: modelo Hugging Face; auto: usa HF y cae a reglas.",
+        help="guard: normalizacion basica sin IA; hf: modelo Hugging Face; auto: usa HF y cae a normalizacion.",
     )
     parser.add_argument(
         "--correction-model",
@@ -196,23 +195,21 @@ def main() -> None:
     script_model_resolved = "n/a"
     correction_engine_resolved = "n/a"
     correction_model_resolved = "n/a"
-    if isinstance(llm_provider, RuleBasedSpanishLLMProvider):
-        script_engine_resolved = "rule"
-        script_model_resolved = "topic_guided_v1"
-        correction_engine_resolved = llm_provider.last_correction_engine
-        correction_model_resolved = llm_provider.last_correction_model
-    elif isinstance(llm_provider, HuggingFaceSpanishLLMProvider):
+    if isinstance(llm_provider, HuggingFaceSpanishLLMProvider):
         script_engine_resolved = "hf"
         script_model_resolved = args.script_model
 
     if script_version and script_version.provider_model:
-        match = re.search(r"\|correction:([^:]+):(.+)$", script_version.provider_model)
+        match = re.search(r"\|(?:correction|corr):([^:]+):(.+)$", script_version.provider_model)
         if match:
             correction_engine_resolved = match.group(1)
             correction_model_resolved = match.group(2)
-    if script_provider_name == "hf_local_generation_fallback":
-        script_engine_resolved = "rule_fallback"
-        script_model_resolved = "topic_guided_v1"
+    if "recovery" in script_provider_name:
+        script_engine_resolved = "hf_recovery"
+        script_model_resolved = args.script_model
+    elif "degraded" in script_provider_name:
+        script_engine_resolved = "hf_degraded"
+        script_model_resolved = args.script_model
     summary = {
         "script_engine": args.script_engine,
         "resolved_script_provider": script_provider_name,
@@ -280,7 +277,7 @@ def _build_tts_provider(
 
 def _build_correction_provider(engine: str, model: str) -> SpanishTextCorrector:
     if engine == "guard":
-        return RuleBasedSpanishCorrector()
+        return NoOpSpanishCorrector()
 
     if engine == "hf":
         if not huggingface_correction_available():
@@ -292,7 +289,7 @@ def _build_correction_provider(engine: str, model: str) -> SpanishTextCorrector:
 
     if huggingface_correction_available():
         return AutoSpanishCorrector(model_id=model)
-    return RuleBasedSpanishCorrector()
+    return NoOpSpanishCorrector()
 
 
 def _build_llm_provider(
@@ -300,9 +297,6 @@ def _build_llm_provider(
     model: str,
     text_corrector: SpanishTextCorrector,
 ) -> LLMProvider:
-    if engine == "rule":
-        return RuleBasedSpanishLLMProvider(text_corrector=text_corrector)
-
     if engine == "hf":
         if not huggingface_generation_available():
             raise RuntimeError(
@@ -321,7 +315,10 @@ def _build_llm_provider(
             text_corrector=text_corrector,
             allow_fallback=True,
         )
-    return RuleBasedSpanishLLMProvider(text_corrector=text_corrector)
+    raise RuntimeError(
+        "No hay runtime de generacion disponible. Instala: "
+        "python -m pip install transformers sentencepiece torch"
+    )
 
 
 def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> None:

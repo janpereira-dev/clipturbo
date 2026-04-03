@@ -106,7 +106,7 @@ Para validar que el guion cambia por tema, usa un topic diferente:
 
 `python apps/worker-media/worker/run_prompt_video.py --topic "soy un depresivo" --script-engine hf --script-model "Qwen/Qwen2.5-0.5B-Instruct" --tts-engine fluido --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"`
 
-El JSON de salida incluye `resolved_script_provider` para saber si el guion salió de HF directo o de fallback topic-driven.
+El JSON de salida incluye `resolved_script_provider` para saber si el guion salió de HF directo, recovery o modo `degraded`.
 
 Correccion con modelo HF en espanol:
 

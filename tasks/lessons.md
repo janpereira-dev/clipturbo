@@ -46,3 +46,12 @@ Usa este formato para registrar patrones repetidos.
 - correccion aplicada: agregar `script-engine auto|hf|rule`, quality-gate de salida HF y fallback `topic_guided_v1` generado desde topic con normalizacion de temas sensibles.
 - regla aprendida: en topics sensibles, rechazar autodefiniciones dañinas y reescribir hacia lenguaje operativo y accionable.
 - impacto: el guion ahora depende del topic y el pipeline reporta si uso HF puro o fallback.
+
+## 2026-04-03 - regla no hardcode
+
+- fecha: 2026-04-03
+- contexto: requerimiento explicito de producto para no quemar vocabulario, dialectos ni guiones en codigo.
+- error o friccion: existian tablas estaticas de correccion y fallback de guion con frases predefinidas.
+- correccion aplicada: eliminar diccionarios de reemplazo y fallback estatico; dejar guion/correccion en tiempo de ejecucion por modelo con guardrails genericos.
+- regla aprendida: NADA QUEMADO EN CODIGO para contenido editorial; si falta informacion, resolver con modelo y reintentos.
+- impacto: arquitectura mas adaptable a variaciones regionales (LatAm/Espana) sin crecer listas manuales.

@@ -5,7 +5,6 @@ import hashlib
 import importlib
 import json
 import os
-import random
 import re
 import shutil
 import subprocess
@@ -24,10 +23,8 @@ from clipturbo_core.providers import (
     SubtitleSegment,
     SynthesizedAudio,
 )
-from clipturbo_core.spanish_quality import SpanishOrthographyGuard
 from clipturbo_core.text_correction import (
-    CorrectionResult,
-    RuleBasedSpanishCorrector,
+    NoOpSpanishCorrector,
     SpanishTextCorrector,
 )
 
@@ -60,50 +57,14 @@ def _split_sentences(text: str) -> list[str]:
     return parts or [text.strip()]
 
 
-class RuleBasedSpanishLLMProvider:
-    def __init__(
-        self,
-        quality_guard: SpanishOrthographyGuard | None = None,
-        text_corrector: SpanishTextCorrector | None = None,
-    ) -> None:
-        guard = quality_guard or SpanishOrthographyGuard()
-        self._text_corrector = text_corrector or RuleBasedSpanishCorrector(guard=guard)
-        self._last_correction = CorrectionResult(
-            text="",
-            engine="guard",
-            model="spanish_orthography_guard_v1",
-        )
-
-    @property
-    def last_correction_engine(self) -> str:
-        return self._last_correction.engine
-
-    @property
-    def last_correction_model(self) -> str:
-        return self._last_correction.model
-
-    def generate_text(self, prompt: str) -> GeneratedScript:
-        topic = self._extract_topic(prompt)
-        lines = _build_topic_guided_lines(topic)
-        correction = self._text_corrector.correct(" ".join(lines))
-        self._last_correction = correction
-        script_text = correction.text
-        trace: ProviderTrace = {
-            "provider_name": "rule_based_local",
-            "provider_model": f"stoic-es-v1|correction:{correction.engine}:{correction.model}",
-            "request_id": f"llm_{uuid4().hex}",
-        }
-        return {"script_text": script_text, "trace": trace}
-
-    @staticmethod
-    def _extract_topic(prompt: str) -> str:
-        lower = prompt.lower()
-        marker = "sobre "
-        index = lower.find(marker)
-        if index == -1:
-            return "tu objetivo"
-        topic = prompt[index + len(marker) :].strip().rstrip(".")
-        return topic or "tu objetivo"
+def _extract_topic_from_prompt(prompt: str) -> str:
+    lower = prompt.lower()
+    marker = "sobre "
+    index = lower.find(marker)
+    if index == -1:
+        return "tema no especificado"
+    topic = prompt[index + len(marker) :].strip().rstrip(".")
+    return topic or "tema no especificado"
 
 
 class HuggingFaceSpanishLLMProvider:
@@ -116,47 +77,70 @@ class HuggingFaceSpanishLLMProvider:
     ) -> None:
         self._model_id = model_id
         self._max_new_tokens = max_new_tokens
-        self._text_corrector = text_corrector or RuleBasedSpanishCorrector()
+        self._text_corrector = text_corrector or NoOpSpanishCorrector()
         self._allow_fallback = allow_fallback
         self._runtime: dict[str, object] | None = None
 
     def generate_text(self, prompt: str) -> GeneratedScript:
-        topic = RuleBasedSpanishLLMProvider._extract_topic(prompt)
+        topic = _extract_topic_from_prompt(prompt)
         model_prompt = _build_generation_prompt(topic)
         try:
-            cleaned = self._generate_validated_script(model_prompt=model_prompt, topic=topic)
+            cleaned, degraded = self._generate_validated_script(model_prompt=model_prompt, topic=topic)
             correction = self._text_corrector.correct(cleaned)
             script_text = correction.text
-            provider_name = "hf_local_generation"
-            provider_model = f"{self._model_id}|correction:{correction.engine}:{correction.model}"
-        except Exception:
+            provider_name = "hf_local_generation_degraded" if degraded else "hf_local_generation"
+            provider_model = _compact_provider_model(
+                model_id=self._model_id,
+                correction_engine=correction.engine,
+                correction_model=correction.model,
+                retry=degraded,
+            )
+        except Exception as exc:
             if not self._allow_fallback:
                 raise
-            fallback_lines = _build_topic_guided_lines(topic)
-            correction = self._text_corrector.correct(" ".join(fallback_lines))
+            cleaned_retry, degraded_retry = self._generate_validated_script(
+                model_prompt=_build_generation_prompt_recovery(topic),
+                topic=topic,
+            )
+            correction = self._text_corrector.correct(cleaned_retry)
             script_text = correction.text
-            provider_name = "hf_local_generation_fallback"
-            provider_model = f"topic_guided_v1|correction:{correction.engine}:{correction.model}"
+            provider_name = "hf_local_generation_recovery_degraded" if degraded_retry else "hf_local_generation_recovery"
+            provider_model = _compact_provider_model(
+                model_id=self._model_id,
+                correction_engine=correction.engine,
+                correction_model=correction.model,
+                retry=True,
+            )
 
         trace: ProviderTrace = {
             "provider_name": provider_name,
-            "provider_model": provider_model,
+            "provider_model": _truncate_provider_model(provider_model),
             "request_id": f"llm_{uuid4().hex}",
         }
         return {"script_text": script_text, "trace": trace}
 
-    def _generate_validated_script(self, model_prompt: str, topic: str) -> str:
-        first_raw = self._generate(model_prompt=model_prompt, topic=topic)
-        first_clean = _clean_generated_script(first_raw, model_prompt)
+    def _generate_validated_script(self, model_prompt: str, topic: str) -> tuple[str, bool]:
+        prompts: list[str] = [model_prompt, _build_generation_prompt_retry(topic)]
+        last_candidate = ""
+
+        for prompt_item in prompts:
+            raw = self._generate(model_prompt=prompt_item, topic=topic)
+            cleaned = _clean_generated_script(raw, prompt_item)
+            last_candidate = cleaned
+            try:
+                _validate_generated_script(cleaned, topic)
+                return cleaned, False
+            except Exception:
+                continue
+
+        repair_prompt = _build_generation_prompt_repair(topic=topic, previous_output=last_candidate)
+        repaired_raw = self._generate(model_prompt=repair_prompt, topic=topic)
+        repaired_clean = _clean_generated_script(repaired_raw, repair_prompt)
         try:
-            _validate_generated_script(first_clean, topic)
-            return first_clean
+            _validate_generated_script(repaired_clean, topic)
+            return repaired_clean, False
         except Exception:
-            retry_prompt = _build_generation_prompt_retry(topic)
-            second_raw = self._generate(model_prompt=retry_prompt, topic=topic)
-            second_clean = _clean_generated_script(second_raw, retry_prompt)
-            _validate_generated_script(second_clean, topic)
-            return second_clean
+            return _soft_recover_script(repaired_clean, topic), True
 
     def _generate(self, model_prompt: str, topic: str) -> str:
         runtime = self._get_runtime()
@@ -240,76 +224,42 @@ def _load_transformers_runtime() -> tuple[ModuleType, ModuleType]:
     return transformers_module, torch_module
 
 
-def _build_topic_guided_lines(topic: str) -> list[str]:
-    clean_topic = topic.strip()
-    normalized_topic = _normalize_topic_for_script(clean_topic)
-    seed = int(hashlib.sha256(clean_topic.encode("utf-8")).hexdigest()[:8], 16)
-    rng = random.Random(seed)
-
-    openers = [
-        "Hoy puedes mirar",
-        "Ahora te toca observar",
-        "En este momento conviene enfrentar",
-        "Tu primer paso es reconocer",
-    ]
-    reframes = [
-        "sin convertirlo en tu identidad.",
-        "sin dejar que te defina por completo.",
-        "como un estado temporal, no como destino.",
-        "como una señal que puedes gestionar con método.",
-    ]
-    breath_actions = [
-        "Respira cuatro segundos, exhala seis y baja el ritmo interno.",
-        "Haz una pausa breve: inhala profundo, exhala lento y vuelve al presente.",
-        "Detén la prisa mental con tres respiraciones largas y conscientes.",
-    ]
-    focus_actions = [
-        "Elige una tarea de diez minutos y complétala antes de evaluar tu día.",
-        "Define una acción mínima y termínala sin negociar contigo.",
-        "Empieza por un bloque corto y deja que el impulso trabaje a tu favor.",
-    ]
-    discipline_lines = [
-        "La disciplina no elimina el dolor, pero sí evita que mande sobre tu agenda.",
-        "La constancia no exige perfección; exige volver a intentarlo hoy.",
-        "El progreso nace cuando decides actuar incluso con incomodidad.",
-    ]
-    perspective_lines = [
-        "No necesitas resolverlo todo ahora: necesitas sostener el siguiente paso.",
-        "No busques aplausos rápidos; busca evidencia diaria de avance real.",
-        "No esperes motivación perfecta; construye estabilidad con rutina simple.",
-    ]
-    closing_lines = [
-        "Haz lo que depende de ti hoy y deja que mañana encuentre a alguien más fuerte.",
-        "Suma una victoria pequeña hoy y tu narrativa empezará a cambiar.",
-        "Acción sobria, foco diario y paciencia: así recuperas el control.",
-    ]
-
-    return [
-        f"{rng.choice(openers)} {normalized_topic} {rng.choice(reframes)}",
-        f"Cuando aparezca {normalized_topic}, {rng.choice(breath_actions)}",
-        f"Convierte {normalized_topic} en dirección práctica: {rng.choice(focus_actions)}",
-        rng.choice(discipline_lines),
-        rng.choice(perspective_lines),
-        f"Cada paso constante reduce el peso de {normalized_topic} sobre tus decisiones.",
-        rng.choice(closing_lines),
-    ]
-
-
 def _build_generation_prompt(topic: str) -> str:
     return (
-        "Escribe un guion breve en espanol para un video vertical de 30 a 45 segundos (90 a 130 palabras). "
+        "Genera un guion en espanol para video vertical de 30 a 45 segundos (90 a 130 palabras). "
         f"Tema: {topic}. "
-        "Tono: motivacion estoica, claro y directo. "
-        "Formato: 7 frases cortas en un solo parrafo. "
-        "No incluyas encabezados, no listas, no hashtags, no emojis."
+        "Escribe 6 a 8 frases claras, naturales y publicables. "
+        "No incluyas encabezados, bullets, hashtags ni emojis. "
+        "No repitas el prompt ni metainstrucciones."
     )
 
 
 def _build_generation_prompt_retry(topic: str) -> str:
     return (
-        f"Genera un guion final en espanol sobre {topic}. "
-        "Debe tener 7 frases completas, 90 a 130 palabras, tono estoico y lenguaje claro. "
-        "No incluyas instrucciones, solo el guion final."
+        "Reescribe desde cero un guion final limpio en espanol. "
+        f"Tema real: {topic}. "
+        "Debe ser util para narracion TTS, 6 a 8 frases, sin formato markdown, sin comillas envolventes. "
+        "Devuelve solo el guion."
+    )
+
+
+def _build_generation_prompt_recovery(topic: str) -> str:
+    return (
+        "Recuperacion de salida: produce una version alternativa y mas simple del guion. "
+        f"Tema: {topic}. "
+        "Mantener neutralidad regional (espanol internacional), claridad y tono sobrio. "
+        "Devuelve solo texto final, sin metaexplicaciones."
+    )
+
+
+def _build_generation_prompt_repair(topic: str, previous_output: str) -> str:
+    clipped = previous_output[:450]
+    return (
+        "Corrige y reescribe el siguiente borrador para que sea un guion final limpio en espanol. "
+        f"Tema obligatorio: {topic}. "
+        "Reglas: 6 a 8 frases, texto continuo, sin markdown, sin bullets, sin etiquetas de escena, sin ingles. "
+        "Devuelve solo el guion final.\n\n"
+        f"Borrador:\n{clipped}"
     )
 
 
@@ -359,8 +309,7 @@ def _clean_generated_script(text: str, model_prompt: str) -> str:
 
 def _validate_generated_script(text: str, topic: str) -> None:
     lowered = text.lower()
-    topic_lower = topic.lower().strip()
-    if len(text.split()) < 20:
+    if len(text.split()) < 8:
         raise RuntimeError("Salida HF demasiado corta para guion operativo")
     forbidden = (
         "escribe un guion",
@@ -374,33 +323,56 @@ def _validate_generated_script(text: str, topic: str) -> None:
 
     if "**" in text or "#" in text:
         raise RuntimeError("Salida HF contiene formato no editorial")
+    if any(marker in text for marker in ("[", "]", "•")):
+        raise RuntimeError("Salida HF contiene marcadores no editoriales")
+    if re.search(r"\b(INT|EXT)\b", text, flags=re.IGNORECASE):
+        raise RuntimeError("Salida HF con formato tipo screenplay")
 
     sentence_candidates = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
-    if len(sentence_candidates) < 6:
+    if len(sentence_candidates) < 2:
         raise RuntimeError("Salida HF con pocas frases completas")
 
-    if topic_lower.startswith("soy ") and topic_lower in lowered:
-        raise RuntimeError("Salida HF repite autodefinicion sensible del topic")
+    tokens = [tok.strip(".,;:!?()[]\"'") for tok in text.split()]
+    significant = [tok for tok in tokens if len(tok) >= 3]
+    if significant:
+        uppercase_ratio = sum(1 for tok in significant if tok.isupper()) / len(significant)
+        if uppercase_ratio > 0.25:
+            raise RuntimeError("Salida HF con exceso de tokens en mayusculas")
 
     topic_terms = [t for t in re.findall(r"[a-záéíóúñü]{4,}", topic.lower()) if t not in {"sobre"}]
-    if topic_terms and not any(term in lowered for term in topic_terms):
+    if topic_terms and not any(term in lowered for term in topic_terms[:2]):
         raise RuntimeError("Salida HF sin relacion visible con el topic")
 
 
-def _normalize_topic_for_script(topic: str) -> str:
-    raw = topic.strip().lower()
-    replacements = {
-        "soy un depresivo": "la sensacion de tristeza profunda",
-        "soy depresivo": "la sensacion de tristeza profunda",
-        "depresion": "la depresion",
-        "ansiedad": "la ansiedad",
-    }
-    for key, value in replacements.items():
-        if raw == key:
-            return value
-    if raw.startswith("soy "):
-        return f"ese estado de {topic.strip()[4:]}"
-    return topic.strip()
+def _compact_provider_model(
+    model_id: str,
+    correction_engine: str,
+    correction_model: str,
+    retry: bool,
+) -> str:
+    mode = "retry" if retry else "direct"
+    return f"{model_id}|{mode}|corr:{correction_engine}:{correction_model}"
+
+
+def _truncate_provider_model(value: str, max_len: int = 120) -> str:
+    if len(value) <= max_len:
+        return value
+    short_hash = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+    keep = max_len - 9
+    return f"{value[:keep]}#{short_hash}"
+
+
+def _soft_recover_script(text: str, topic: str) -> str:
+    cleaned = text
+    cleaned = re.sub(r"\[.*?\]", " ", cleaned)
+    cleaned = cleaned.replace("•", " ")
+    cleaned = re.sub(r"\b(INT|EXT)\b\.?", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        cleaned = topic.strip()
+    if cleaned and cleaned[-1] not in ".!?":
+        cleaned = f"{cleaned}."
+    return cleaned
 
 
 class WindowsSpeechTTSProvider:

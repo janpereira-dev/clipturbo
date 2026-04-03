@@ -1,7 +1,6 @@
 import pytest
 
 from clipturbo_core.local_providers import (
-    _build_topic_guided_lines,
     _clean_generated_script,
     _validate_generated_script,
 )
@@ -24,18 +23,14 @@ def test_validate_generated_script_rejects_meta_instructions() -> None:
         )
 
 
-def test_validate_generated_script_rejects_sensitive_self_label_echo() -> None:
+def test_validate_generated_script_rejects_too_short_output() -> None:
+    with pytest.raises(RuntimeError):
+        _validate_generated_script("Texto corto.", "motivacion estoica")
+
+
+def test_validate_generated_script_rejects_screenplay_format() -> None:
     with pytest.raises(RuntimeError):
         _validate_generated_script(
-            "Soy un depresivo. Sigo igual cada dia y no hay salida.",
-            "soy un depresivo",
+            "[Background music] INT. STREET NIGHT. Texto con formato de escena no editorial.",
+            "motivacion estoica",
         )
-
-
-def test_topic_guided_lines_change_with_topic() -> None:
-    lines_a = _build_topic_guided_lines("motivacion estoica")
-    lines_b = _build_topic_guided_lines("soy un depresivo")
-
-    assert lines_a != lines_b
-    assert any("motivacion estoica" in line.lower() for line in lines_a)
-    assert any("tristeza profunda" in line.lower() for line in lines_b)

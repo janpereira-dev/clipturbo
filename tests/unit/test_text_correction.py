@@ -13,12 +13,10 @@ class BrokenCorrector:
 
 def test_rule_based_corrector_returns_clean_spanish() -> None:
     corrector = RuleBasedSpanishCorrector()
-    result = corrector.correct("cada decision pequena define tu caracter")
+    result = corrector.correct("texto   con  espacios   de  prueba")
 
     assert result.engine == "guard"
-    assert "decisión" in result.text
-    assert "pequeña" in result.text
-    assert "carácter" in result.text
+    assert "  " not in result.text
 
 
 def test_auto_corrector_falls_back_when_primary_fails() -> None:
@@ -28,10 +26,10 @@ def test_auto_corrector_falls_back_when_primary_fails() -> None:
         primary=BrokenCorrector(),
         fallback=fallback,
     )
-    result = corrector.correct("la disciplina de hoy es la libertad de manana")
+    result = corrector.correct("texto  de fallback para validacion")
 
     assert result.engine == "guard"
-    assert "mañana" in result.text
+    assert "  " not in result.text
 
 
 def test_cleanup_generated_text_removes_instruction_artifacts() -> None:

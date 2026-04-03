@@ -44,6 +44,7 @@ from clipturbo_core.spanish_quality import SpanishOrthographyGuard
 from clipturbo_core.text_correction import (
     AutoSpanishCorrector,
     HuggingFaceSpanishCorrector,
+    NoOpSpanishCorrector,
     RuleBasedSpanishCorrector,
     huggingface_correction_available,
 )
@@ -88,6 +89,7 @@ __all__ = [
     "SpanishOrthographyGuard",
     "AutoSpanishCorrector",
     "HuggingFaceSpanishCorrector",
+    "NoOpSpanishCorrector",
     "RuleBasedSpanishCorrector",
     "huggingface_correction_available",
 ]

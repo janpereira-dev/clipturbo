@@ -39,9 +39,8 @@ python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica"
 Generacion de guion desde topic:
 
 - `--script-engine hf`: fuerza generacion con modelo Hugging Face.
-- `--script-engine rule`: generacion local por reglas (fallback).
-- `--script-engine auto`: intenta HF y cae a rule.
-- revisa `resolved_script_provider` en el JSON final para confirmar si fue `hf_local_generation` o `hf_local_generation_fallback`.
+- `--script-engine auto`: usa HF con reintentos y recovery por modelo.
+- revisa `resolved_script_provider` en el JSON final: `hf_local_generation`, `hf_local_generation_recovery` o variantes `*_degraded`.
 
 Modelo por defecto de guion:
 

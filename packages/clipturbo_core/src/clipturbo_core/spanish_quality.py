@@ -5,89 +5,38 @@ import unicodedata
 
 
 class SpanishOrthographyGuard:
-    """Corrects and validates common Spanish orthography issues for generated scripts."""
+    """
+    Guardrail liviano sin diccionarios quemados.
 
-    _term_fixes: tuple[tuple[str, str], ...] = (
-        ("caracter", "carácter"),
-        ("reaccion", "reacción"),
-        ("decision", "decisión"),
-        ("dominaras", "dominarás"),
-        ("pequena", "pequeña"),
-        ("pequea", "pequeña"),
-        ("manana", "mañana"),
-        ("maana", "mañana"),
-        ("sensacion", "sensación"),
-        ("senal", "señal"),
-        ("seal", "señal"),
-        ("util", "útil"),
-        ("minima", "mínima"),
-        ("terminala", "termínala"),
-        ("dificil", "difícil"),
-        ("aprobacion", "aprobación"),
-        ("enfocate", "enfócate"),
-        ("accion", "acción"),
-        ("mas", "más"),
-    )
-
-    _phrase_fixes: tuple[tuple[str, str], ...] = (
-        ("como respondes", "cómo respondes"),
-        ("cada decision pequena", "cada decisión pequeña"),
-        ("haz hoy lo dificil", "haz hoy lo difícil"),
-        ("no busques aprobacion", "no busques aprobación"),
-        ("respira, enfocate y actua", "respira, enfócate y actúa"),
-        ("la disciplina de hoy es la libertad de manana", "la disciplina de hoy es la libertad de mañana"),
-        ("dominarás tu da", "dominarás tu día"),
-        ("dominaras tu da", "dominarás tu día"),
-    )
-
-    _forbidden_tokens: tuple[str, ...] = (
-        "caracter",
-        "reaccion",
-        "decision",
-        "pequena",
-        "manana",
-        "maana",
-        "sensacion",
-        "senal",
-        "seal",
-        "dificil",
-        "aprobacion",
-        "enfocate",
-        "pequea",
-        "minima",
-        "terminala",
-    )
+    Regla: no corrige vocabulario por tablas estáticas; solo normaliza formato
+    y valida que la salida sea apta para pasar a modelos o render.
+    """
 
     def process(self, text: str) -> str:
-        corrected = self.correct(text)
-        issues = self.validate(corrected)
+        normalized = self.correct(text)
+        issues = self.validate(normalized)
         if issues:
-            raise ValueError(f"Spanish orthography quality gate failed: {', '.join(issues)}")
-        return corrected
+            raise ValueError(f"Spanish quality gate failed: {', '.join(issues)}")
+        return normalized
 
     def correct(self, text: str) -> str:
         cleaned = unicodedata.normalize("NFC", text.strip())
         cleaned = re.sub(r"\s+", " ", cleaned)
         cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
-
-        for wrong, right in self._phrase_fixes:
-            pattern = re.compile(re.escape(wrong), flags=re.IGNORECASE)
-            cleaned = pattern.sub(right, cleaned)
-
-        for wrong, right in self._term_fixes:
-            pattern = re.compile(rf"\b{re.escape(wrong)}\b", flags=re.IGNORECASE)
-            cleaned = pattern.sub(right, cleaned)
-
         if cleaned and cleaned[-1] not in ".!?":
             cleaned = f"{cleaned}."
         return cleaned
 
     def validate(self, text: str) -> list[str]:
         issues: list[str] = []
-        lowered = text.lower()
-        for token in self._forbidden_tokens:
-            if re.search(rf"\b{re.escape(token)}\b", lowered):
-                issues.append(f"contains '{token}'")
+        if len(text.split()) < 4:
+            issues.append("too_short")
         if "  " in text:
-            issues.append("contains double spaces")
+            issues.append("double_spaces")
+        if re.search(r"[{}<>]", text):
+            issues.append("template_tokens_detected")
+        if re.search(r"(.)\1{4,}", text):
+            issues.append("repeated_characters")
+        if re.search(r"[^\S\r\n]{2,}", text):
+            issues.append("irregular_spacing")
         return issues

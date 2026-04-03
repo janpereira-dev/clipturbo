@@ -56,6 +56,7 @@ Antes de abrir contexto nuevo:
 - validacion proporcional al riesgo
 - no mezclar dominios no relacionados en la misma tarea
 - cierre obligatorio con memoria en `docs/lessons/` y Engram
+- nada de vocabulario, guiones o dialectos quemados en codigo: todo contenido editorial se genera en runtime con modelo
 
 ## Regla de comandos
 

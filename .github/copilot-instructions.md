@@ -19,6 +19,7 @@ ClipTurbo es un producto nuevo y serio para crear, adaptar y programar videos co
 - registra decisiones en `docs/lessons/` y Engram
 - prefiere cambios pequenos, tipados y verificables
 - sugiere solo comandos comprobables; prioriza `python -m <tool>` y valida `--help` ante duda
+- no hardcodear guiones/correcciones/dialectos en codigo; usa generacion en runtime con modelos
 
 ## Archivos clave
 

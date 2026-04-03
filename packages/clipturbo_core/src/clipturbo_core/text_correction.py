@@ -20,7 +20,7 @@ class SpanishTextCorrector(Protocol):
     def correct(self, text: str) -> CorrectionResult: ...
 
 
-class RuleBasedSpanishCorrector:
+class NoOpSpanishCorrector:
     def __init__(self, guard: SpanishOrthographyGuard | None = None) -> None:
         self._guard = guard or SpanishOrthographyGuard()
 
@@ -29,7 +29,7 @@ class RuleBasedSpanishCorrector:
         return CorrectionResult(
             text=corrected,
             engine="guard",
-            model="spanish_orthography_guard_v1",
+            model="spanish_quality_guard_v2",
         )
 
 
@@ -150,7 +150,7 @@ class AutoSpanishCorrector:
             model_id=model_id,
             max_new_tokens=max_new_tokens,
         )
-        self._fallback = fallback or RuleBasedSpanishCorrector()
+        self._fallback = fallback or NoOpSpanishCorrector()
 
     def correct(self, text: str) -> CorrectionResult:
         try:
@@ -196,3 +196,7 @@ def _cleanup_generated_text(text: str) -> str:
     )
     cleaned = re.sub(r"^texto:\s*", "", cleaned, flags=re.IGNORECASE)
     return cleaned.strip()
+
+
+# Backward compatibility alias. No lexicon corrections; only generic guard normalization.
+RuleBasedSpanishCorrector = NoOpSpanishCorrector
