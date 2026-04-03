@@ -11,8 +11,20 @@ from uuid import uuid4
 # Allow running this script directly from the repo without pip install.
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CORE_SRC = REPO_ROOT / "packages" / "clipturbo_core" / "src"
-if str(CORE_SRC) not in sys.path:
-    sys.path.insert(0, str(CORE_SRC))
+
+
+def _ensure_core_import_path() -> None:
+    try:
+        import clipturbo_core  # noqa: F401
+    except ModuleNotFoundError as exc:
+        if exc.name != "clipturbo_core":
+            raise
+        core_src = str(CORE_SRC)
+        if core_src not in sys.path:
+            sys.path.insert(0, core_src)
+
+
+_ensure_core_import_path()
 
 from clipturbo_core import (
     AuthoringService,

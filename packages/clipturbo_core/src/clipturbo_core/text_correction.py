@@ -210,7 +210,9 @@ class AutoSpanishCorrector:
     def correct(self, text: str) -> CorrectionResult:
         try:
             return self._primary.correct(text)
-        except Exception:
+        except Exception as exc:
+            if not _is_expected_correction_failure(exc):
+                raise
             return self._fallback.correct(text)
 
 
@@ -220,6 +222,12 @@ def huggingface_correction_available() -> bool:
     except Exception:
         return False
     return True
+
+
+def _is_expected_correction_failure(error: Exception) -> bool:
+    if isinstance(error, (RuntimeError, OSError, ImportError)):
+        return True
+    return _is_model_access_error(error)
 
 
 def _cleanup_generated_text(text: str) -> str:

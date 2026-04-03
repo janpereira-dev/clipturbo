@@ -18,7 +18,6 @@ from clipturbo_core.domain import (
     Project,
     ProjectStatus,
     PromptTrace,
-    PromptUsage,
     PublishJob,
     PublishPlatform,
     RenderFormat,
@@ -603,7 +602,7 @@ class PromptToVideoPipelineService:
                 input_variables=request.prompt_variables,
                 output_text=script_text,
                 prompt_template_version=request.prompt_template_version,
-                usage=PromptUsage(prompt_tokens=0, completion_tokens=0),
+                usage=None,
                 response_hash=_sha256_text(script_text),
             )
         )

@@ -79,9 +79,9 @@ def _extract_topic_from_prompt(prompt: str) -> str:
     marker = "sobre "
     index = lower.find(marker)
     if index == -1:
-        return "tema no especificado"
+        return ""
     topic = prompt[index + len(marker) :].strip().rstrip(".")
-    return topic or "tema no especificado"
+    return topic
 
 
 class HuggingFaceSpanishLLMProvider:
@@ -107,7 +107,7 @@ class HuggingFaceSpanishLLMProvider:
 
     def generate_text(self, prompt: str) -> GeneratedScript:
         topic = _extract_topic_from_prompt(prompt)
-        model_prompt = _build_generation_prompt(topic)
+        model_prompt = prompt.strip() or _build_generation_prompt(topic)
         try:
             cleaned, degraded = self._generate_validated_script(model_prompt=model_prompt, topic=topic)
             correction = self._text_corrector.correct(cleaned)
@@ -687,11 +687,16 @@ class FFmpegVideoRenderProvider:
 
 
 def _build_subtitle_filter_chain(subtitle_path: str) -> str:
+    escaped_path = _escape_ffmpeg_filter_value(subtitle_path)
     return (
-        f"subtitles={subtitle_path}:"
+        f"subtitles='{escaped_path}':"
         "force_style='FontName=Arial,FontSize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H00303030,"
         "BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginV=120'"
     )
+
+
+def _escape_ffmpeg_filter_value(value: str) -> str:
+    return value.replace("\\", "\\\\").replace(":", r"\:").replace("'", r"\'")
 
 
 class LocalStorageProvider:

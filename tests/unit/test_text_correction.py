@@ -1,3 +1,5 @@
+import pytest
+
 from clipturbo_core.text_correction import (
     AutoSpanishCorrector,
     CorrectionResult,
@@ -9,6 +11,11 @@ from clipturbo_core.text_correction import (
 class BrokenCorrector:
     def correct(self, text: str) -> CorrectionResult:
         raise RuntimeError("model unavailable")
+
+
+class UnexpectedBrokenCorrector:
+    def correct(self, text: str) -> CorrectionResult:
+        raise ValueError("unexpected failure")
 
 
 def test_rule_based_corrector_returns_clean_spanish() -> None:
@@ -30,6 +37,18 @@ def test_auto_corrector_falls_back_when_primary_fails() -> None:
 
     assert result.engine == "guard"
     assert "  " not in result.text
+
+
+def test_auto_corrector_raises_on_unexpected_primary_errors() -> None:
+    fallback = RuleBasedSpanishCorrector()
+    corrector = AutoSpanishCorrector(
+        model_id="jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+        primary=UnexpectedBrokenCorrector(),
+        fallback=fallback,
+    )
+
+    with pytest.raises(ValueError, match="unexpected failure"):
+        corrector.correct("texto de prueba")
 
 
 def test_cleanup_generated_text_removes_instruction_artifacts() -> None:
