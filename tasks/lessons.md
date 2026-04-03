@@ -64,3 +64,12 @@ Usa este formato para registrar patrones repetidos.
 - correccion aplicada: crear `manifests/model-routing.json` + modulo `model_routing.py` para resolver `script_model`, `correction_model`, `tts_engine` y voz por `locale+registro`.
 - regla aprendida: el dialecto se controla por routing de modelos y prompts de contexto, no por reemplazos lexicos quemados en codigo.
 - impacto: configuracion centralizada, editable sin tocar logica del core y lista para escalar a mas paises/registros.
+
+## 2026-04-03 - bloqueo de fuga de metainstrucciones al audio/subtitulos
+
+- fecha: 2026-04-03
+- contexto: algunos outputs HF llegaban con artefactos de prompt (ej. "Guion final", "Corrige ortografia...", numeracion y bloques estilo SRT).
+- error o friccion: el pipeline los trataba como guion real y terminaban narrados en TTS/subtitulos.
+- correccion aplicada: reforzar limpieza en `text_correction.py` y `local_providers.py`, anadir sanitizacion de markdown/numeracion/timestamps e instrucciones meta, y tests de regresion.
+- regla aprendida: cualquier salida de modelo debe pasar un filtro anti-metainstruccion antes de persistirla o narrarla.
+- impacto: el guion final ahora descarta ruido de prompt y prioriza texto editorial util.

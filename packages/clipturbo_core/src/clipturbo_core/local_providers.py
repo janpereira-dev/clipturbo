@@ -298,6 +298,7 @@ def _clean_generated_script(text: str, model_prompt: str) -> str:
     cleaned = text.strip()
     if cleaned.lower().startswith(model_prompt.lower()):
         cleaned = cleaned[len(model_prompt) :].strip()
+    cleaned = _sanitize_editorial_artifacts(cleaned)
     cleaned = cleaned.strip("\"'`")
     cleaned = re.sub(r"^(guion|script)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"^[\-\*\d\.\)\s]+", "", cleaned)
@@ -317,6 +318,12 @@ def _validate_generated_script(text: str, topic: str) -> None:
         "tono:",
         "formato:",
         "solo el guion",
+        "corrige ortografia",
+        "conserva significado",
+        "devuelve solo el texto corregido",
+        "texto corregido",
+        "guion final",
+        "script final",
     )
     if any(token in lowered for token in forbidden):
         raise RuntimeError("Salida HF contiene metainstrucciones")
@@ -363,15 +370,34 @@ def _truncate_provider_model(value: str, max_len: int = 120) -> str:
 
 
 def _soft_recover_script(text: str, topic: str) -> str:
-    cleaned = text
+    cleaned = _sanitize_editorial_artifacts(text)
     cleaned = re.sub(r"\[.*?\]", " ", cleaned)
     cleaned = cleaned.replace("•", " ")
+    cleaned = re.sub(r"(?m)^\s*\d+\s*$", " ", cleaned)
     cleaned = re.sub(r"\b(INT|EXT)\b\.?", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[#*_`]+", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if not cleaned:
         cleaned = topic.strip()
     if cleaned and cleaned[-1] not in ".!?":
         cleaned = f"{cleaned}."
+    return cleaned
+
+
+def _sanitize_editorial_artifacts(text: str) -> str:
+    cleaned = text
+    cleaned = re.sub(
+        r"\d{2}:\d{2}:\d{2},\d{3}\s*-->\s*\d{2}:\d{2}:\d{2},\d{3}",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"(?m)^\s*\d+\s*$", " ", cleaned)
+    cleaned = re.sub(r"(?i)\b(guion|script)\s*final\b[\s:\-\*]*", " ", cleaned)
+    cleaned = re.sub(r"(?i)\btexto\s*:\s*", " ", cleaned)
+    cleaned = re.sub(r"(?i)\beste guion\b[^.:]{0,120}[:\-]\s*", " ", cleaned)
+    cleaned = re.sub(r"[#*_`]+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned
 
 

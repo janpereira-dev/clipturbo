@@ -41,3 +41,18 @@ def test_cleanup_generated_text_removes_instruction_artifacts() -> None:
     )
     cleaned = _cleanup_generated_text(raw)
     assert cleaned == "No esperes el momento perfecto."
+
+
+def test_cleanup_generated_text_removes_srt_like_instruction_noise() -> None:
+    raw = (
+        "1\n00:00:00,000 --> 00:00:04,000\n"
+        "Corrige ortografia y gramatica del siguiente texto en espanol\n"
+        "2\n00:00:04,000 --> 00:00:08,000\n"
+        "Conserva significado, tono y longitud aproximada\n"
+        "3\n00:00:08,000 --> 00:00:12,000\n"
+        "Devuelve solo el texto corregido\n"
+        "4\n00:00:12,000 --> 00:00:16,000\n"
+        "Texto: Respira, enfocate y da el siguiente paso."
+    )
+    cleaned = _cleanup_generated_text(raw)
+    assert cleaned == "Respira, enfocate y da el siguiente paso."

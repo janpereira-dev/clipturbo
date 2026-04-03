@@ -85,6 +85,8 @@ class HuggingFaceSpanishCorrector:
             generated = text
 
         cleaned = _cleanup_generated_text(generated)
+        if _looks_like_instructional_output(cleaned):
+            cleaned = text.strip()
         corrected = self._guard.process(cleaned)
         return CorrectionResult(
             text=corrected,
@@ -169,33 +171,43 @@ def huggingface_correction_available() -> bool:
 
 def _cleanup_generated_text(text: str) -> str:
     cleaned = text.strip()
+    cleaned = re.sub(
+        r"\d{2}:\d{2}:\d{2},\d{3}\s*-->\s*\d{2}:\d{2}:\d{2},\d{3}",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"(?m)^\s*\d+\s*$", " ", cleaned)
+
     # Limpia respuestas que incluyen instrucciones o encabezados.
-    cleaned = re.sub(
-        r"^(texto corregido|texto final|correccion)\s*:\s*",
-        "",
-        cleaned,
-        flags=re.IGNORECASE,
+    instruction_patterns = (
+        r"\b(texto corregido|texto final|correccion)\s*:\s*",
+        r"\bcorrige ortografia y gramatica del siguiente texto en espanol\.?\s*",
+        r"\bconserva significado,\s*tono y longitud aproximada\.?\s*",
+        r"\bdevuelve solo el texto corregido\.?\s*",
+        r"\btexto\s*:\s*",
     )
-    cleaned = re.sub(
-        r"^corrige ortografia y gramatica del siguiente texto en espanol\.?\s*",
-        "",
-        cleaned,
-        flags=re.IGNORECASE,
+    for pattern in instruction_patterns:
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r"[#*_`]+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _looks_like_instructional_output(text: str) -> bool:
+    if not text:
+        return True
+    lowered = text.lower()
+    markers = (
+        "corrige ortografia",
+        "conserva significado",
+        "devuelve solo",
+        "texto corregido",
+        "texto final",
     )
-    cleaned = re.sub(
-        r"^conserva significado, tono y longitud aproximada\.?\s*",
-        "",
-        cleaned,
-        flags=re.IGNORECASE,
-    )
-    cleaned = re.sub(
-        r"^devuelve solo el texto corregido\.?\s*",
-        "",
-        cleaned,
-        flags=re.IGNORECASE,
-    )
-    cleaned = re.sub(r"^texto:\s*", "", cleaned, flags=re.IGNORECASE)
-    return cleaned.strip()
+    hits = sum(1 for marker in markers if marker in lowered)
+    return hits >= 2
 
 
 # Backward compatibility alias. No lexicon corrections; only generic guard normalization.
