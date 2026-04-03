@@ -16,6 +16,7 @@ if str(CORE_SRC) not in sys.path:
 
 from clipturbo_core import (
     AuthoringService,
+    Locale,
     Project,
     PromptToVideoPipelineService,
     PromptToVideoRequest,
@@ -25,6 +26,9 @@ from clipturbo_core import (
     TraceabilityService,
     VoiceProfile,
     VoiceProvider,
+    list_registers_for_locale,
+    load_model_routing_manifest,
+    resolve_dialect_route,
 )
 from clipturbo_core.in_memory_repositories import InMemoryRepositoryBundle
 from clipturbo_core.local_providers import (
@@ -52,6 +56,21 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Genera video vertical desde prompt base usando el core.")
     parser.add_argument("--topic", default="motivacion estoica", help="Tema principal del video.")
     parser.add_argument(
+        "--locale",
+        default="es-ES",
+        help="Locale de escritura/voz (es-ES, es-VE, es-CO, es-EC, es-PR).",
+    )
+    parser.add_argument(
+        "--registro",
+        default="neutral",
+        help="Registro editorial (neutral, cercano, profesional).",
+    )
+    parser.add_argument(
+        "--routing-manifest",
+        default="manifests/model-routing.json",
+        help="Ruta al manifiesto JSON de routing por locale/registro.",
+    )
+    parser.add_argument(
         "--script-engine",
         default="auto",
         choices=["auto", "hf"],
@@ -59,8 +78,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--script-model",
-        default="Qwen/Qwen2.5-0.5B-Instruct",
-        help="Modelo Hugging Face para generar guion desde el topic.",
+        default="",
+        help="Modelo HF para guion. Si queda vacio, se resuelve por routing locale/registro.",
     )
     parser.add_argument(
         "--tts-engine",
@@ -87,8 +106,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--correction-model",
-        default="jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
-        help="Modelo Hugging Face para correccion ortografica/gramatical.",
+        default="",
+        help="Modelo HF para correccion. Si queda vacio, se resuelve por routing locale/registro.",
     )
     parser.add_argument(
         "--record-lesson",
@@ -111,28 +130,49 @@ def main() -> None:
     output_root = Path(args.output_root)
     output_root.mkdir(parents=True, exist_ok=True)
 
+    locale = _parse_locale(args.locale)
+    routing_manifest = load_model_routing_manifest(REPO_ROOT / args.routing_manifest)
+    route = resolve_dialect_route(routing_manifest, locale=locale, register=args.registro)
+    available_registers = list_registers_for_locale(routing_manifest, locale)
+
+    resolved_script_model = args.script_model.strip() or route.script_model
+    resolved_correction_model = args.correction_model.strip() or route.correction_model
+    resolved_tts_engine = args.tts_engine if args.tts_engine != "auto" else route.tts_engine
+    resolved_voice = args.voice.strip()
+    if not resolved_voice:
+        resolved_voice = route.loquendo_voice if resolved_tts_engine == "loquendo" else route.fluido_voice
+
     repos = InMemoryRepositoryBundle()
-    project = Project(owner_id=uuid4(), workspace_id=uuid4(), name=f"Demo {args.topic.title()}")
+    project = Project(
+        owner_id=uuid4(),
+        workspace_id=uuid4(),
+        name=f"Demo {args.topic.title()}",
+        default_language=locale,
+    )
     repos.projects.save(project)
 
     tts_provider, voice_provider, voice_name = _build_tts_provider(
-        engine=args.tts_engine,
-        voice=args.voice,
+        engine=resolved_tts_engine,
+        voice=resolved_voice,
         audio_dir=output_root / "audio",
+        fluido_default=route.fluido_voice,
+        loquendo_default=route.loquendo_voice,
     )
     correction_provider = _build_correction_provider(
         engine=args.correction_engine,
-        model=args.correction_model,
+        model=resolved_correction_model,
     )
     llm_provider = _build_llm_provider(
         engine=args.script_engine,
-        model=args.script_model,
+        model=resolved_script_model,
         text_corrector=correction_provider,
     )
     voice_profile = VoiceProfile(
         name=voice_name,
         provider=voice_provider,
         provider_voice_id=voice_name,
+        language=locale,
+        locale=locale,
     )
     repos.voice_profiles.save(voice_profile)
 
@@ -178,26 +218,33 @@ def main() -> None:
     result = pipeline.run(
         PromptToVideoRequest(
             project_id=project.id,
-            prompt_template="Crea un guion corto de motivacion estoica en espanol sobre {topic}.",
-            prompt_variables={"topic": args.topic},
+            prompt_template=(
+                "Crea un guion corto en espanol ({locale}) "
+                "con registro {registro} sobre {topic}."
+            ),
+            prompt_variables={
+                "topic": args.topic,
+                "locale": locale.value,
+                "registro": route.register_id,
+            },
             voice_profile_id=voice_profile.id,
             requested_by="demo-worker",
             publish_targets=publish_targets,
-            title=f"Motivacion Estoica: {args.topic.title()}",
+            title=f"{args.topic.title()} ({locale.value}, {route.register_id})",
         )
     )
 
     render_job = repos.render_jobs.get(result.render_job_id)
     script_version = repos.script_versions.get(result.script_version_id)
     llm_provider = pipeline.llm
-    script_provider_name = script_version.provider_name if script_version else "n/a"
+    script_provider_name = (script_version.provider_name if script_version else "n/a") or "n/a"
     script_engine_resolved = "n/a"
     script_model_resolved = "n/a"
     correction_engine_resolved = "n/a"
     correction_model_resolved = "n/a"
     if isinstance(llm_provider, HuggingFaceSpanishLLMProvider):
         script_engine_resolved = "hf"
-        script_model_resolved = args.script_model
+        script_model_resolved = resolved_script_model
 
     if script_version and script_version.provider_model:
         match = re.search(r"\|(?:correction|corr):([^:]+):(.+)$", script_version.provider_model)
@@ -206,16 +253,23 @@ def main() -> None:
             correction_model_resolved = match.group(2)
     if "recovery" in script_provider_name:
         script_engine_resolved = "hf_recovery"
-        script_model_resolved = args.script_model
+        script_model_resolved = resolved_script_model
     elif "degraded" in script_provider_name:
         script_engine_resolved = "hf_degraded"
-        script_model_resolved = args.script_model
+        script_model_resolved = resolved_script_model
+    if correction_engine_resolved == "n/a":
+        correction_model_resolved = resolved_correction_model
     summary = {
+        "locale": locale.value,
+        "requested_registro": args.registro.strip().lower(),
+        "registro": route.register_id,
+        "routing_manifest": args.routing_manifest,
+        "routing_registers_locale": available_registers,
         "script_engine": args.script_engine,
         "resolved_script_provider": script_provider_name,
         "resolved_script_engine": script_engine_resolved,
         "resolved_script_model": script_model_resolved,
-        "tts_engine": args.tts_engine,
+        "tts_engine": resolved_tts_engine,
         "resolved_tts_provider": voice_provider.value,
         "voice_name": voice_name,
         "correction_engine": args.correction_engine,
@@ -236,14 +290,22 @@ def main() -> None:
     print(json.dumps(summary, ensure_ascii=True, indent=2))
 
 
+def _parse_locale(raw_locale: str) -> Locale:
+    value = raw_locale.strip()
+    try:
+        return Locale(value)
+    except ValueError as exc:
+        supported = ", ".join(locale.value for locale in Locale)
+        raise RuntimeError(f"Locale no soportado: {raw_locale}. Valores validos: {supported}") from exc
+
+
 def _build_tts_provider(
     engine: str,
     voice: str,
     audio_dir: Path,
+    fluido_default: str,
+    loquendo_default: str,
 ) -> tuple[TTSProvider, VoiceProvider, str]:
-    loquendo_default = "Microsoft Laura"
-    fluido_default = "es-ES-AlvaroNeural"
-
     if engine == "loquendo":
         selected_voice = voice or loquendo_default
         return (
@@ -328,6 +390,8 @@ def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> 
     lines = [
         f"## Run {timestamp}",
         f"- topic: {args.topic}",
+        f"- locale: {summary['locale']}",
+        f"- registro: {summary['registro']}",
         f"- script_provider: {summary['resolved_script_provider']}",
         f"- script_engine: {summary['resolved_script_engine']}",
         f"- script_model: {summary['resolved_script_model']}",

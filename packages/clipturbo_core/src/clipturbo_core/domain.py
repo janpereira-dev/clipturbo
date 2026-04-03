@@ -18,6 +18,9 @@ class Locale(str, Enum):
     ES_MX = "es-MX"
     ES_AR = "es-AR"
     ES_VE = "es-VE"
+    ES_CO = "es-CO"
+    ES_EC = "es-EC"
+    ES_PR = "es-PR"
     ES_NEUTRAL = "es-neutral"
 
 
@@ -520,6 +523,8 @@ def _piper_voice_keys(locale: Locale) -> list[str]:
     if locale == Locale.ES_AR:
         return ["es_AR-daniela-high"]
     if locale == Locale.ES_MX:
+        return ["es_MX-claude-high"]
+    if locale in {Locale.ES_VE, Locale.ES_CO, Locale.ES_EC, Locale.ES_PR, Locale.ES_NEUTRAL}:
         return ["es_MX-claude-high"]
     return ["es_ES-davefx-medium", "es_ES-sharvard-medium"]
 

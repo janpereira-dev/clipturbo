@@ -107,6 +107,16 @@ def test_voice_recommendation_for_windows_quality_goal() -> None:
     assert any("Docker" in note for note in recommendation.notes)
 
 
+def test_voice_recommendation_for_colombia_uses_latam_piper_voice() -> None:
+    recommendation = recommend_voice_stack(
+        goal=VoiceGoal.SIMPLE_OFFLINE,
+        target_locale=Locale.ES_CO,
+        windows_host=False,
+    )
+
+    assert recommendation.suggested_voice_keys == ["es_MX-claude-high"]
+
+
 def test_default_voice_profiles_include_spanish_piper_voices() -> None:
     voices = default_voice_profiles()
     keys = {voice.provider_voice_id for voice in voices if voice.provider == VoiceProvider.PIPER}

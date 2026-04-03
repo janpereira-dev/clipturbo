@@ -14,6 +14,7 @@
 - [x] integrar corrector ortografico/gramatical en espanol con motor `guard|hf|auto`
 - [x] generar guiones topic-driven con `script-engine auto|hf` y quality gate anti-prompt
 - [x] aplicar guardrail "nada quemado en codigo" para guion/correccion y test de verificacion
+- [x] implementar routing por `locale+registro` para script/correccion/voz desde manifiesto (`es-ES`, `es-VE`, `es-CO`, `es-EC`, `es-PR`)
 - [ ] incorporar pytest, ruff y mypy en CI
 - [x] implementar primer endpoint de salud y version
 - [x] definir ComplianceReview en codigo (PromptTrace y AuditLog implementados)

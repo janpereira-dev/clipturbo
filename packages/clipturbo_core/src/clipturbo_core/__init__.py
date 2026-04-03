@@ -29,6 +29,13 @@ from clipturbo_core.domain import (
     default_voice_profiles,
     recommend_voice_stack,
 )
+from clipturbo_core.model_routing import (
+    DialectRoute,
+    ModelRoutingManifest,
+    list_registers_for_locale,
+    load_model_routing_manifest,
+    resolve_dialect_route,
+)
 from clipturbo_core.services import (
     AuthoringService,
     DomainServiceError,
@@ -77,6 +84,11 @@ __all__ = [
     "VoiceStackRecommendation",
     "default_voice_profiles",
     "recommend_voice_stack",
+    "DialectRoute",
+    "ModelRoutingManifest",
+    "load_model_routing_manifest",
+    "resolve_dialect_route",
+    "list_registers_for_locale",
     "AuthoringService",
     "DomainServiceError",
     "PromptToVideoPipelineService",

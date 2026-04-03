@@ -43,7 +43,7 @@ Usa este formato para registrar patrones repetidos.
 - fecha: 2026-04-03
 - contexto: el topic cambiaba pero el guion salia casi igual o con eco de prompt.
 - error o friccion: generacion HF devolvia texto pobre o metainstrucciones para temas sensibles.
-- correccion aplicada: agregar `script-engine auto|hf|rule`, quality-gate de salida HF y fallback `topic_guided_v1` generado desde topic con normalizacion de temas sensibles.
+- correccion aplicada: agregar `script-engine auto|hf`, quality-gate de salida HF y recovery por modelo.
 - regla aprendida: en topics sensibles, rechazar autodefiniciones dañinas y reescribir hacia lenguaje operativo y accionable.
 - impacto: el guion ahora depende del topic y el pipeline reporta si uso HF puro o fallback.
 
@@ -55,3 +55,12 @@ Usa este formato para registrar patrones repetidos.
 - correccion aplicada: eliminar diccionarios de reemplazo y fallback estatico; dejar guion/correccion en tiempo de ejecucion por modelo con guardrails genericos.
 - regla aprendida: NADA QUEMADO EN CODIGO para contenido editorial; si falta informacion, resolver con modelo y reintentos.
 - impacto: arquitectura mas adaptable a variaciones regionales (LatAm/Espana) sin crecer listas manuales.
+
+## 2026-04-03 - routing por pais/registro sin vocabulario quemado
+
+- fecha: 2026-04-03
+- contexto: necesidad de mejorar naturalidad por dialecto (`es-ES`, `es-VE`, `es-CO`, `es-EC`, `es-PR`) sin crear listas manuales de palabras.
+- error o friccion: los modelos/voz se configuraban por flags aislados y no habia capa unica de enrutado.
+- correccion aplicada: crear `manifests/model-routing.json` + modulo `model_routing.py` para resolver `script_model`, `correction_model`, `tts_engine` y voz por `locale+registro`.
+- regla aprendida: el dialecto se controla por routing de modelos y prompts de contexto, no por reemplazos lexicos quemados en codigo.
+- impacto: configuracion centralizada, editable sin tocar logica del core y lista para escalar a mas paises/registros.

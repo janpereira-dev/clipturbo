@@ -45,7 +45,7 @@ ClipTurbo esta orientado a un flujo real de contenido:
 
 - idioma principal: espanol
 - prioridad inicial: Espana
-- preparado para es-ES, es-MX, es-AR, es-VE y espanol neutro
+- routing activo para es-ES, es-VE, es-CO, es-EC, es-PR (mas fallback a es-MX, es-AR y espanol neutro)
 - copy, tono y formatos pensados para publico hispano
 - borrador por defecto y revision humana antes de publicar
 
@@ -100,13 +100,19 @@ Los nombres de carpeta con guiones son deliberados para claridad organizativa; p
 
 Pipeline directo desde la raiz:
 
-`python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --script-engine auto --tts-engine auto --correction-engine auto --publish-drafts`
+`python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --locale es-ES --registro neutral --script-engine auto --tts-engine auto --correction-engine auto --publish-drafts`
 
 Para validar que el guion cambia por tema, usa un topic diferente:
 
-`python apps/worker-media/worker/run_prompt_video.py --topic "soy un depresivo" --script-engine hf --script-model "Qwen/Qwen2.5-0.5B-Instruct" --tts-engine fluido --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"`
+`python apps/worker-media/worker/run_prompt_video.py --topic "habitos estoicos para entrenar disciplina" --locale es-CO --registro profesional --script-engine hf --tts-engine fluido --publish-drafts`
 
 El JSON de salida incluye `resolved_script_provider` para saber si el guion salió de HF directo, recovery o modo `degraded`.
+
+Routing por dialecto/pais:
+
+- archivo fuente: [manifests/model-routing.json](manifests/model-routing.json)
+- prioriza modelos y voces por `locale + registro`
+- `--script-model`, `--correction-model` y `--voice` permiten override sin editar codigo
 
 Correccion con modelo HF en espanol:
 

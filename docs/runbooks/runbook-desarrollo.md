@@ -33,7 +33,7 @@ Este comando ya ejecuta el pipeline Python del core para `prompt -> script -> au
 Tambien puedes lanzarlo desde raiz:
 
 ```bash
-python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --script-engine auto --tts-engine auto --correction-engine auto --publish-drafts
+python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --locale es-ES --registro neutral --script-engine auto --tts-engine auto --correction-engine auto --publish-drafts
 ```
 
 Generacion de guion desde topic:
@@ -42,9 +42,12 @@ Generacion de guion desde topic:
 - `--script-engine auto`: usa HF con reintentos y recovery por modelo.
 - revisa `resolved_script_provider` en el JSON final: `hf_local_generation`, `hf_local_generation_recovery` o variantes `*_degraded`.
 
-Modelo por defecto de guion:
+Routing por pais/registro:
 
-- `Qwen/Qwen2.5-0.5B-Instruct` (puedes cambiarlo con `--script-model`).
+- `--locale`: `es-ES`, `es-VE`, `es-CO`, `es-EC`, `es-PR`.
+- `--registro`: `neutral`, `cercano`, `profesional`.
+- `--routing-manifest`: manifiesto JSON con modelos y voces por locale/registro.
+- `--script-model` y `--correction-model` sobreescriben el routing cuando se pasan explicitamente.
 
 Modos de voz:
 
@@ -54,7 +57,7 @@ Modos de voz:
 
 Correccion de ortografia/gramatica:
 
-- `--correction-engine guard`: correccion local por reglas (sin dependencias pesadas).
+- `--correction-engine guard`: normalizacion/validacion local sin modelo AI.
 - `--correction-engine hf`: fuerza modelo Hugging Face (falla si no estan instaladas dependencias).
 - `--correction-engine auto`: intenta modelo HF y cae a `guard` si no esta disponible.
 
@@ -67,13 +70,13 @@ python -m pip install transformers sentencepiece torch
 Ejemplo con modelo en espanol:
 
 ```bash
-python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --tts-engine fluido --voice "es-ES-AlvaroNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000" --publish-drafts
+python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --locale es-ES --registro cercano --tts-engine fluido --voice "es-ES-AlvaroNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000" --publish-drafts
 ```
 
 Ejemplo full HF (guion + correccion):
 
 ```bash
-python apps/worker-media/worker/run_prompt_video.py --topic "soy un depresivo" --script-engine hf --script-model "Qwen/Qwen2.5-0.5B-Instruct" --tts-engine fluido --voice "es-ES-AlvaroNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000" --publish-drafts
+python apps/worker-media/worker/run_prompt_video.py --topic "habitos estoicos para entrenar disciplina" --locale es-CO --registro profesional --script-engine hf --script-model "meta-llama/Llama-3.2-3B-Instruct" --tts-engine fluido --voice "es-MX-DaliaNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e" --publish-drafts
 ```
 
 Modelos sugeridos para `--correction-model`:
