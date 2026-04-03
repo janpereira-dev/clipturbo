@@ -20,6 +20,7 @@ from clipturbo_core.providers import (
     SubtitleSegment,
     SynthesizedAudio,
 )
+from clipturbo_core.spanish_quality import SpanishOrthographyGuard
 
 
 def _run(command: list[str]) -> None:
@@ -51,18 +52,21 @@ def _split_sentences(text: str) -> list[str]:
 
 
 class RuleBasedSpanishLLMProvider:
+    def __init__(self, quality_guard: SpanishOrthographyGuard | None = None) -> None:
+        self._quality_guard = quality_guard or SpanishOrthographyGuard()
+
     def generate_text(self, prompt: str) -> GeneratedScript:
         topic = self._extract_topic(prompt)
         lines = [
             f"No esperes el momento perfecto para {topic}. Empieza con lo que tienes.",
-            "La dificultad no es una excusa. Es la escuela del caracter.",
-            "Domina tu reaccion y dominaras tu dia.",
-            "Cada decision pequena construye tu identidad.",
-            "La disciplina de hoy es la libertad de manana.",
+            "La dificultad no es una excusa. Es la escuela del carácter.",
+            "Domina tu reacción y dominarás tu día.",
+            "Cada decisión pequeña construye tu identidad.",
+            "La disciplina de hoy es la libertad de mañana.",
             "No busques aplausos. Busca coherencia.",
-            "Respira, enfocate y da el siguiente paso.",
+            "Respira, enfócate y da el siguiente paso.",
         ]
-        script_text = " ".join(lines)
+        script_text = self._quality_guard.process(" ".join(lines))
         trace: ProviderTrace = {
             "provider_name": "rule_based_local",
             "provider_model": "stoic-es-v1",

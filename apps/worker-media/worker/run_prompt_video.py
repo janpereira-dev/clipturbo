@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import UTC, datetime
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -57,6 +58,19 @@ def parse_args() -> argparse.Namespace:
         "--publish-drafts",
         action="store_true",
         help="Si se activa, genera borradores locales para YouTube, Instagram y TikTok.",
+    )
+    parser.add_argument(
+        "--record-lesson",
+        dest="record_lesson",
+        action="store_true",
+        default=True,
+        help="Guarda bitacora local en docs/lessons/pipeline-runs.md.",
+    )
+    parser.add_argument(
+        "--no-record-lesson",
+        dest="record_lesson",
+        action="store_false",
+        help="No escribir bitacora local en docs/lessons.",
     )
     return parser.parse_args()
 
@@ -146,6 +160,8 @@ def main() -> None:
     }
     summary_path = output_root / "last_run.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=True, indent=2), encoding="utf-8")
+    if args.record_lesson:
+        _append_run_lesson(summary=summary, args=args)
     print(json.dumps(summary, ensure_ascii=True, indent=2))
 
 
@@ -186,6 +202,25 @@ def _build_tts_provider(
         VoiceProvider.WINDOWS_SPEECH,
         selected_voice,
     )
+
+
+def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> None:
+    lessons_path = REPO_ROOT / "docs" / "lessons" / "pipeline-runs.md"
+    lessons_path.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).isoformat()
+    lines = [
+        f"## Run {timestamp}",
+        f"- topic: {args.topic}",
+        f"- tts_engine: {summary['tts_engine']}",
+        f"- voice_name: {summary['voice_name']}",
+        f"- output_video: {summary['output_video']}",
+        f"- publish_jobs: {len(summary['publish_jobs'])}",
+        f"- compliance_review_id: {summary['compliance_review_id']}",
+        "- nota: registrar tambien en Engram para memoria transversal.",
+        "",
+    ]
+    with lessons_path.open("a", encoding="utf-8") as file:
+        file.write("\n".join(lines))
 
 
 if __name__ == "__main__":

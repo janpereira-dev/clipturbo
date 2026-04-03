@@ -40,6 +40,7 @@ from clipturbo_core.services import (
     TraceabilityService,
     VoiceService,
 )
+from clipturbo_core.spanish_quality import SpanishOrthographyGuard
 
 __all__ = [
     "ActorType",
@@ -78,4 +79,5 @@ __all__ = [
     "RenderExecutionService",
     "TraceabilityService",
     "VoiceService",
+    "SpanishOrthographyGuard",
 ]

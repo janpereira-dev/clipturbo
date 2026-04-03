@@ -33,6 +33,7 @@ Antes de abrir contexto nuevo:
 - [agents/subagente-revision-procesos.md](agents/subagente-revision-procesos.md): revision de flujo y operacion
 - [agents/subagente-orquestador-documentacion.md](agents/subagente-orquestador-documentacion.md): consistencia documental
 - [agents/subagente-guardarrailes-formato.md](agents/subagente-guardarrailes-formato.md): formato, tono y plantillas
+- [agents/subagente-bitacora-memoria.md](agents/subagente-bitacora-memoria.md): trazabilidad de cambios y memoria operativa
 
 ## Cuando usar cada uno
 
@@ -54,6 +55,7 @@ Antes de abrir contexto nuevo:
 - providers desacoplados por interfaz
 - validacion proporcional al riesgo
 - no mezclar dominios no relacionados en la misma tarea
+- cierre obligatorio con memoria en `docs/lessons/` y Engram
 
 ## Tokens
 

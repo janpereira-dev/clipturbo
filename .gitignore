@@ -13,3 +13,6 @@ build/
 htmlcov/
 .env
 media/generated/
+media/demos/*.mp4
+media/demos/*.wav
+media/demos/*.mp3

@@ -42,6 +42,12 @@ Modos de voz:
 - `--tts-engine fluido`: Edge Neural TTS (mas natural, requiere `edge-tts`).
 - `--tts-engine auto`: intenta fluido y cae a loquendo si falta dependencia.
 
+Memoria de ejecucion:
+
+- por defecto guarda bitacora en `docs/lessons/pipeline-runs.md`
+- puedes desactivar con `--no-record-lesson`
+- despues de una ejecucion relevante, guardar tambien resumen en Engram
+
 ## Antes de cerrar una tarea
 
 1. revisar `tasks/todo.md`
