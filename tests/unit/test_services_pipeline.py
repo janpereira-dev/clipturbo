@@ -1,10 +1,14 @@
 from uuid import uuid4
 
+import pytest
+
 from clipturbo_core.domain import (
     ComplianceStatus,
     Project,
     PublishPlatform,
     RenderFormat,
+    RenderJob,
+    RenderJobStatus,
     VoiceProfile,
     VoiceProvider,
 )
@@ -19,6 +23,7 @@ from clipturbo_core.providers import (
 )
 from clipturbo_core.services import (
     AuthoringService,
+    DomainServiceError,
     PromptToVideoPipelineService,
     PromptToVideoRequest,
     PublishService,
@@ -45,6 +50,25 @@ class FakeTTSProvider:
             "request_id": "req-tts-1",
         }
         return {"asset_path": f"audio/{voice_id}.wav", "duration_ms": 45000, "trace": trace}
+
+
+class RecordingTTSProvider:
+    def __init__(self) -> None:
+        self.last_voice_id: str | None = None
+
+    def synthesize(self, script: str, voice_id: str) -> SynthesizedAudio:
+        self.last_voice_id = voice_id
+        trace: ProviderTrace = {
+            "provider_name": "fake-tts",
+            "provider_model": "fake-voice",
+            "request_id": "req-tts-recording",
+        }
+        return {"asset_path": "audio/default.wav", "duration_ms": 30000, "trace": trace}
+
+
+class FailingTTSProvider:
+    def synthesize(self, script: str, voice_id: str) -> SynthesizedAudio:
+        raise RuntimeError("tts backend unavailable")
 
 
 class FakeSubtitleProvider:
@@ -166,3 +190,127 @@ def test_prompt_to_video_pipeline_end_to_end() -> None:
     compliance = repos.compliance_reviews.get(result.compliance_review_id)
     assert compliance is not None
     assert compliance.status == ComplianceStatus.PENDING
+
+
+def test_pipeline_without_voice_profile_uses_provider_default_voice() -> None:
+    repos = InMemoryRepositoryBundle()
+    project = Project(owner_id=uuid4(), workspace_id=uuid4(), name="Proyecto sin voz")
+    repos.projects.save(project)
+
+    authoring = AuthoringService(repos.projects, repos.script_versions, repos.audit_logs)
+    renders = RenderExecutionService(
+        repos.projects, repos.script_versions, repos.voice_profiles, repos.render_jobs, repos.audit_logs
+    )
+    traceability = TraceabilityService(repos.prompt_traces, repos.audit_logs, repos.compliance_reviews)
+    publish = PublishService(
+        repos.render_jobs,
+        repos.publish_jobs,
+        repos.audit_logs,
+        {},
+    )
+    tts = RecordingTTSProvider()
+    pipeline = PromptToVideoPipelineService(
+        authoring=authoring,
+        renders=renders,
+        traceability=traceability,
+        publish=publish,
+        projects=repos.projects,
+        voices=repos.voice_profiles,
+        llm=FakeLLMProvider(),
+        tts=tts,
+        subtitles=FakeSubtitleProvider(),
+        video_renderer=FakeVideoRenderProvider(),
+        storage=FakeStorageProvider(),
+    )
+
+    pipeline.run(
+        PromptToVideoRequest(
+            project_id=project.id,
+            prompt_template="Tema {tema}",
+            prompt_variables={"tema": "disciplina"},
+            requested_by="user-1",
+            title="Video sin voice profile",
+        )
+    )
+
+    assert tts.last_voice_id == ""
+
+
+def test_pipeline_marks_render_failed_when_provider_throws() -> None:
+    repos = InMemoryRepositoryBundle()
+    project = Project(owner_id=uuid4(), workspace_id=uuid4(), name="Proyecto fallo render")
+    repos.projects.save(project)
+
+    authoring = AuthoringService(repos.projects, repos.script_versions, repos.audit_logs)
+    renders = RenderExecutionService(
+        repos.projects, repos.script_versions, repos.voice_profiles, repos.render_jobs, repos.audit_logs
+    )
+    traceability = TraceabilityService(repos.prompt_traces, repos.audit_logs, repos.compliance_reviews)
+    publish = PublishService(
+        repos.render_jobs,
+        repos.publish_jobs,
+        repos.audit_logs,
+        {},
+    )
+    pipeline = PromptToVideoPipelineService(
+        authoring=authoring,
+        renders=renders,
+        traceability=traceability,
+        publish=publish,
+        projects=repos.projects,
+        voices=repos.voice_profiles,
+        llm=FakeLLMProvider(),
+        tts=FailingTTSProvider(),
+        subtitles=FakeSubtitleProvider(),
+        video_renderer=FakeVideoRenderProvider(),
+        storage=FakeStorageProvider(),
+    )
+
+    with pytest.raises(DomainServiceError, match="pipeline render failed"):
+        pipeline.run(
+            PromptToVideoRequest(
+                project_id=project.id,
+                prompt_template="Tema {tema}",
+                prompt_variables={"tema": "disciplina"},
+                requested_by="user-1",
+                title="Video con fallo",
+            )
+        )
+
+    render_jobs = repos.render_jobs.list_by_project(project.id)
+    assert len(render_jobs) == 1
+    assert render_jobs[0].status.value == "failed"
+    assert render_jobs[0].error_code == "pipeline_render_error"
+
+
+def test_publish_queue_rejects_cross_project_render() -> None:
+    repos = InMemoryRepositoryBundle()
+    project_a = Project(owner_id=uuid4(), workspace_id=uuid4(), name="Proyecto A")
+    project_b = Project(owner_id=uuid4(), workspace_id=uuid4(), name="Proyecto B")
+    repos.projects.save(project_a)
+    repos.projects.save(project_b)
+
+    render_job = RenderJob(
+        project_id=project_a.id,
+        script_version_id=uuid4(),
+        requested_by="user-a",
+        status=RenderJobStatus.COMPLETED,
+        output_url="storage://renders/a.mp4",
+    )
+    repos.render_jobs.save(render_job)
+
+    publish = PublishService(
+        repos.render_jobs,
+        repos.publish_jobs,
+        repos.audit_logs,
+        {PublishPlatform.YOUTUBE_SHORTS: FakePublisherProvider()},
+    )
+
+    with pytest.raises(DomainServiceError, match="does not belong"):
+        publish.queue_publish_job(
+            project_id=project_b.id,
+            render_job_id=render_job.id,
+            target_platform=PublishPlatform.YOUTUBE_SHORTS,
+            requested_by="user-b",
+            metadata={"draft": True},
+        )

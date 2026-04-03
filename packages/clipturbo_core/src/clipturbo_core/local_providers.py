@@ -630,15 +630,7 @@ class FFmpegVideoRenderProvider:
         output_path = self._output_dir / f"{job_id}.mp4"
 
         subtitle_path = os.path.relpath(srt_path, Path.cwd()).replace("\\", "/")
-        filter_chain = (
-            "drawtext=fontfile='C\\:/Windows/Fonts/arialbd.ttf':"
-            "text='ClipTurbo':fontcolor=white:fontsize=64:x=(w-text_w)/2:y=160,"
-            "drawtext=fontfile='C\\:/Windows/Fonts/arial.ttf':"
-            "text='Motivacion Estoica':fontcolor=0x93c5fd:fontsize=40:x=(w-text_w)/2:y=250,"
-            f"subtitles={subtitle_path}:"
-            "force_style='FontName=Arial,FontSize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H00303030,"
-            "BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginV=120'"
-        )
+        filter_chain = _build_subtitle_filter_chain(subtitle_path)
 
         _run(
             [
@@ -675,6 +667,14 @@ class FFmpegVideoRenderProvider:
             "duration_ms": int(duration * 1000),
             "trace": trace,
         }
+
+
+def _build_subtitle_filter_chain(subtitle_path: str) -> str:
+    return (
+        f"subtitles={subtitle_path}:"
+        "force_style='FontName=Arial,FontSize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H00303030,"
+        "BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginV=120'"
+    )
 
 
 class LocalStorageProvider:

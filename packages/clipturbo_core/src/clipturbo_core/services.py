@@ -13,6 +13,7 @@ from clipturbo_core.domain import (
     AuditLog,
     ComplianceReview,
     ComplianceStatus,
+    Locale,
     PipelineStage,
     Project,
     ProjectStatus,
@@ -96,7 +97,7 @@ class AuthoringService:
         content: str,
         created_by: str,
         source_type: ScriptSourceType,
-        language: str = "es-ES",
+        language: Locale = Locale.ES_ES,
         parent_version_id: UUID | None = None,
         change_summary: str | None = None,
         provider_name: str | None = None,
@@ -434,6 +435,8 @@ class PublishService:
         render_job = self._render_jobs.get(render_job_id)
         if not render_job:
             raise DomainServiceError("render job not found")
+        if render_job.project_id != project_id:
+            raise DomainServiceError("render job does not belong to project")
         if render_job.status != RenderJobStatus.COMPLETED:
             raise DomainServiceError("render job must be completed before publish")
         if not render_job.output_url:
@@ -615,26 +618,35 @@ class PromptToVideoPipelineService:
         )
         self.renders.start_render_job(render_job.id, actor_id="pipeline")
         self.renders.mark_rendering(render_job.id, actor_id="pipeline")
+        try:
+            # Empty voice key allows providers to use their configured default voice.
+            voice_key = voice_profile.provider_voice_id if voice_profile else ""
+            audio = self.tts.synthesize(script_text, voice_key)
+            subtitle_track = self.subtitles.generate(script_text, audio["asset_path"])
 
-        voice_key = voice_profile.provider_voice_id if voice_profile else "default"
-        audio = self.tts.synthesize(script_text, voice_key)
-        subtitle_track = self.subtitles.generate(script_text, audio["asset_path"])
+            rendered = self.video_renderer.compose(
+                script=script_text,
+                audio_path=audio["asset_path"],
+                subtitles=subtitle_track,
+                render_format=request.render_format,
+            )
 
-        rendered = self.video_renderer.compose(
-            script=script_text,
-            audio_path=audio["asset_path"],
-            subtitles=subtitle_track,
-            render_format=request.render_format,
-        )
-
-        asset_key = f"renders/{request.project_id}/{render_job.id}.mp4"
-        output_url = self.storage.put(key=asset_key, source_path=rendered["asset_path"])
-        completed_render = self.renders.complete_render_job(
-            render_job.id,
-            actor_id="pipeline",
-            output_url=output_url,
-            artifact_id=asset_key,
-        )
+            asset_key = f"renders/{request.project_id}/{render_job.id}.mp4"
+            output_url = self.storage.put(key=asset_key, source_path=rendered["asset_path"])
+            completed_render = self.renders.complete_render_job(
+                render_job.id,
+                actor_id="pipeline",
+                output_url=output_url,
+                artifact_id=asset_key,
+            )
+        except Exception as exc:
+            self.renders.fail_render_job(
+                render_job_id=render_job.id,
+                actor_id="pipeline",
+                error_code="pipeline_render_error",
+                error_message=_truncate_error(str(exc)),
+            )
+            raise DomainServiceError(f"pipeline render failed: {exc}") from exc
 
         compliance_review = self.traceability.create_compliance_review(
             ComplianceReview(
@@ -676,3 +688,10 @@ class _SafeDict(dict[str, str]):
 
 def _render_prompt(template: str, variables: dict[str, str]) -> str:
     return template.format_map(_SafeDict(variables))
+
+
+def _truncate_error(message: str, limit: int = 500) -> str:
+    cleaned = message.strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 3] + "..."

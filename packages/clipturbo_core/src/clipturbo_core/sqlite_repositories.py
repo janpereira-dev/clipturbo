@@ -103,7 +103,9 @@ class SqliteProjectRepository:
 
 class SqliteScriptVersionRepository:
     def __init__(self, db_path: str | Path) -> None:
+        self._db_path = db_path
         self._store = _SqliteModelStore(db_path, "script_versions", ScriptVersion.model_validate)
+        self._ensure_indexes()
 
     def save(self, script_version: ScriptVersion) -> ScriptVersion:
         return self._store.upsert(script_version)
@@ -112,13 +114,58 @@ class SqliteScriptVersionRepository:
         return self._store.get(script_version_id)
 
     def list_by_project(self, project_id: UUID) -> list[ScriptVersion]:
-        return [item for item in self._store.list_all() if item.project_id == project_id]
+        try:
+            with _open_connection(self._db_path) as connection:
+                rows = connection.execute(
+                    "SELECT payload FROM script_versions WHERE json_extract(payload, '$.project_id') = ?",
+                    (str(project_id),),
+                ).fetchall()
+            return [ScriptVersion.model_validate(json.loads(row["payload"])) for row in rows]
+        except sqlite3.OperationalError:
+            # Fallback for SQLite builds without JSON1 extensions.
+            return [item for item in self._store.list_all() if item.project_id == project_id]
 
     def next_version_number(self, project_id: UUID) -> int:
-        versions = self.list_by_project(project_id)
-        if not versions:
-            return 1
-        return max(item.version_number.value for item in versions) + 1
+        try:
+            with _open_connection(self._db_path) as connection:
+                row = connection.execute(
+                    """
+                    SELECT MAX(CAST(json_extract(payload, '$.version_number.value') AS INTEGER)) AS max_version
+                    FROM script_versions
+                    WHERE json_extract(payload, '$.project_id') = ?
+                    """,
+                    (str(project_id),),
+                ).fetchone()
+            max_version = int(row["max_version"]) if row and row["max_version"] is not None else 0
+            return max_version + 1
+        except sqlite3.OperationalError:
+            versions = self.list_by_project(project_id)
+            if not versions:
+                return 1
+            return max(item.version_number.value for item in versions) + 1
+
+    def _ensure_indexes(self) -> None:
+        try:
+            with _open_connection(self._db_path) as connection:
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_script_versions_project
+                    ON script_versions (json_extract(payload, '$.project_id'))
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_script_versions_project_version
+                    ON script_versions (
+                        json_extract(payload, '$.project_id'),
+                        CAST(json_extract(payload, '$.version_number.value') AS INTEGER)
+                    )
+                    """
+                )
+                connection.commit()
+        except sqlite3.OperationalError:
+            # SQLite without JSON1 support: no index optimization available.
+            return
 
 
 class SqliteVoiceProfileRepository:

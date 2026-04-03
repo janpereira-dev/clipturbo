@@ -1,6 +1,7 @@
 import pytest
 
 from clipturbo_core.local_providers import (
+    _build_subtitle_filter_chain,
     _clean_generated_script,
     _soft_recover_script,
     _validate_generated_script,
@@ -53,3 +54,9 @@ def test_soft_recover_script_removes_numbered_artifacts() -> None:
     recovered = _soft_recover_script(raw, "determinacion")
     assert "###" not in recovered
     assert "\n2\n" not in recovered
+
+
+def test_subtitle_filter_chain_has_no_hardcoded_title_text() -> None:
+    filter_chain = _build_subtitle_filter_chain("tmp/demo.srt")
+    assert "Motivacion Estoica" not in filter_chain
+    assert "ClipTurbo" not in filter_chain

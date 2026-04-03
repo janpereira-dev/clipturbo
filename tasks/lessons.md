@@ -82,3 +82,12 @@ Usa este formato para registrar patrones repetidos.
 - correccion aplicada: agregar fallback de carga de modelo HF (guion y correccion), actualizar manifiesto a modelos abiertos por defecto y devolver error accionable corto cuando todos los candidatos fallan.
 - regla aprendida: nunca dejar un modelo potencialmente gated como unica ruta operativa; toda ruta HF debe incluir fallback verificable.
 - impacto: menor probabilidad de parada total por permisos HF y mejor DX de debugging.
+
+## 2026-04-03 - hardening de servicios por review
+
+- fecha: 2026-04-03
+- contexto: code review detecto riesgos de estado inconsistente en render/publish y defaults de voz.
+- error o friccion: voice key `"default"` rompia proveedores, fallos de TTS/render dejaban jobs no terminales y publish permitia mismatch de proyecto.
+- correccion aplicada: usar `voice_key=""` cuando no hay perfil, marcar `RenderJob` como failed en excepciones de pipeline, validar ownership `render_job.project_id == project_id` antes de queue publish, y respetar `--voice` en fallback loquendo del runner.
+- regla aprendida: en workflows asinc/de pipeline, cualquier fallo de proveedor debe terminar en estado terminal auditable y no dejar jobs colgados.
+- impacto: trazabilidad operativa correcta y menor riesgo de inconsistencias cross-project.

@@ -340,7 +340,7 @@ def _build_tts_provider(
             VoiceProvider.EDGE_TTS,
             selected_voice,
         )
-    selected_voice = loquendo_default
+    selected_voice = voice or loquendo_default
     return (
         WindowsSpeechTTSProvider(audio_dir, default_voice=selected_voice),
         VoiceProvider.WINDOWS_SPEECH,

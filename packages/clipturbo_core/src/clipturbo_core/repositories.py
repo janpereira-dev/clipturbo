@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
 from clipturbo_core.domain import (
@@ -76,4 +76,5 @@ class ComplianceReviewRepository(Protocol):
     def list_by_project(self, project_id: UUID) -> list[ComplianceReview]: ...
 
 
-from clipturbo_core.domain import PromptTrace  # noqa: E402  # avoid forward cyclical style warning
+if TYPE_CHECKING:
+    from clipturbo_core.domain import PromptTrace
