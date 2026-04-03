@@ -150,6 +150,7 @@ def main() -> None:
     render_job = repos.render_jobs.get(result.render_job_id)
     summary = {
         "tts_engine": args.tts_engine,
+        "resolved_tts_provider": voice_provider.value,
         "voice_name": voice_name,
         "project_id": str(result.project_id),
         "script_version_id": str(result.script_version_id),
