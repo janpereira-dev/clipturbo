@@ -5,8 +5,8 @@
 1. crear entorno virtual
 2. instalar `.[dev]`
 3. ejecutar `python -m pytest`
-4. ejecutar `ruff check .`
-5. ejecutar `mypy apps packages`
+4. ejecutar `python -m ruff check .`
+5. ejecutar `python -m mypy apps packages`
 
 ## Ejecucion local
 
@@ -70,6 +70,7 @@ Nota de PowerShell:
 
 - el identificador del modelo (`jorgeortizfuentes/...`) no se ejecuta como comando.
 - siempre debe pasarse como valor de `--correction-model`.
+- si un comando falla por entorno, validar primero `python -m <herramienta> --help` antes de documentarlo.
 
 Memoria de ejecucion:
 

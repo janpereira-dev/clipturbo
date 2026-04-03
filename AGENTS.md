@@ -57,6 +57,12 @@ Antes de abrir contexto nuevo:
 - no mezclar dominios no relacionados en la misma tarea
 - cierre obligatorio con memoria en `docs/lessons/` y Engram
 
+## Regla de comandos
+
+- solo documentar comandos verificados y ejecutables en el entorno objetivo
+- preferir `python -m <tool>` sobre binarios directos
+- si hay duda, comprobar con `--help` antes de recomendar
+
 ## Tokens
 
 Aplicar [manifests/token-policy.md](manifests/token-policy.md) y cargar solo la skill minima necesaria desde `agents/skills/`.

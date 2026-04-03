@@ -154,5 +154,5 @@ Toda decision relevante debe persistirse en dos capas:
 ## Validacion minima
 
 - `python -m pytest`
-- `ruff check .`
-- `mypy apps packages`
+- `python -m ruff check .`
+- `python -m mypy apps packages`

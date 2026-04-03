@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import re
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Protocol
 
 from clipturbo_core.spanish_quality import SpanishOrthographyGuard
@@ -42,22 +43,47 @@ class HuggingFaceSpanishCorrector:
         self._model_id = model_id
         self._max_new_tokens = max_new_tokens
         self._guard = guard or SpanishOrthographyGuard()
-        self._generator: object | None = None
+        self._runtime: dict[str, object] | None = None
 
     @property
     def model_id(self) -> str:
         return self._model_id
 
     def correct(self, text: str) -> CorrectionResult:
-        generator = self._get_generator()
+        runtime = self._get_runtime()
+        tokenizer = runtime["tokenizer"]
+        model = runtime["model"]
+        torch_module = runtime["torch_module"]
+        mode = runtime["mode"]
+
         prompt = self._build_prompt(text)
-        target_tokens = max(self._max_new_tokens, len(text.split()) * 3)
-        output = generator(  # type: ignore[operator]
+        target_tokens = min(self._max_new_tokens, max(96, len(text.split()) * 4))
+
+        encoded = tokenizer(  # type: ignore[operator]
             prompt,
-            max_new_tokens=target_tokens,
-            do_sample=False,
+            return_tensors="pt",
+            truncation=True,
+            max_length=1024,
         )
-        generated = _extract_generated_text(output)
+        with torch_module.no_grad():  # type: ignore[attr-defined]
+            output_ids = model.generate(  # type: ignore[operator]
+                **encoded,
+                max_new_tokens=target_tokens,
+                do_sample=False,
+                num_beams=4 if mode == "seq2seq" else 1,
+            )
+
+        if mode == "causal":
+            input_length = encoded["input_ids"].shape[1]
+            output_ids = output_ids[:, input_length:]
+
+        generated = tokenizer.decode(  # type: ignore[operator]
+            output_ids[0],
+            skip_special_tokens=True,
+        )
+        if not generated.strip():
+            generated = text
+
         cleaned = _cleanup_generated_text(generated)
         corrected = self._guard.process(cleaned)
         return CorrectionResult(
@@ -66,25 +92,32 @@ class HuggingFaceSpanishCorrector:
             model=self._model_id,
         )
 
-    def _get_generator(self) -> object:
-        if self._generator is not None:
-            return self._generator
-        try:
-            transformers_module = importlib.import_module("transformers")
-            pipeline_callable = getattr(transformers_module, "pipeline")
-        except Exception as exc:
-            raise RuntimeError(
-                "No se pudo importar transformers para correccion HF. "
-                "Instala dependencias: pip install transformers sentencepiece torch"
-            ) from exc
+    def _get_runtime(self) -> dict[str, object]:
+        if self._runtime is not None:
+            return self._runtime
+        transformers_module, torch_module = _load_transformers_runtime()
+        auto_tokenizer = getattr(transformers_module, "AutoTokenizer")
+        tokenizer = auto_tokenizer.from_pretrained(self._model_id)
 
-        self._generator = pipeline_callable(
-            task="text2text-generation",
-            model=self._model_id,
-            tokenizer=self._model_id,
-            device=-1,
-        )
-        return self._generator
+        model: object
+        mode: str
+        try:
+            auto_seq2seq = getattr(transformers_module, "AutoModelForSeq2SeqLM")
+            model = auto_seq2seq.from_pretrained(self._model_id)
+            mode = "seq2seq"
+        except Exception:
+            auto_causal = getattr(transformers_module, "AutoModelForCausalLM")
+            model = auto_causal.from_pretrained(self._model_id)
+            mode = "causal"
+
+        model.eval()  # type: ignore[operator]
+        self._runtime = {
+            "tokenizer": tokenizer,
+            "model": model,
+            "torch_module": torch_module,
+            "mode": mode,
+        }
+        return self._runtime
 
     @staticmethod
     def _build_prompt(text: str) -> str:
@@ -94,6 +127,18 @@ class HuggingFaceSpanishCorrector:
             "Devuelve solo el texto corregido.\n\n"
             f"Texto:\n{text}"
         )
+
+
+def _load_transformers_runtime() -> tuple[ModuleType, ModuleType]:
+    try:
+        transformers_module = importlib.import_module("transformers")
+        torch_module = importlib.import_module("torch")
+    except Exception as exc:
+        raise RuntimeError(
+            "No se pudo importar transformers/torch para correccion HF. "
+            "Instala dependencias: python -m pip install transformers sentencepiece torch"
+        ) from exc
+    return transformers_module, torch_module
 
 
 class AutoSpanishCorrector:
@@ -119,20 +164,10 @@ class AutoSpanishCorrector:
 
 def huggingface_correction_available() -> bool:
     try:
-        importlib.import_module("transformers")
+        _load_transformers_runtime()
     except Exception:
         return False
     return True
-
-
-def _extract_generated_text(output: object) -> str:
-    if isinstance(output, list) and output:
-        first_item = output[0]
-        if isinstance(first_item, dict):
-            maybe_text = first_item.get("generated_text")
-            if isinstance(maybe_text, str):
-                return maybe_text
-    raise RuntimeError("Respuesta inesperada del corrector HF")
 
 
 def _cleanup_generated_text(text: str) -> str:

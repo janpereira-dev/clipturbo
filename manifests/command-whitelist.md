@@ -17,8 +17,8 @@
 
 ## Calidad
 
-- `ruff check .`
-- `mypy apps packages`
+- `python -m ruff check .`
+- `python -m mypy apps packages`
 
 ## Infra
 
