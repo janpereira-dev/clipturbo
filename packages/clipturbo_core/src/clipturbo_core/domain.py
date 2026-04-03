@@ -291,7 +291,7 @@ class AuditLog(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: UUID = Field(default_factory=uuid4)
-    project_id: UUID
+    project_id: UUID | None = None
     actor: AuditActor
     action: str = Field(min_length=2, max_length=120)
     entity_type: str = Field(min_length=2, max_length=80)

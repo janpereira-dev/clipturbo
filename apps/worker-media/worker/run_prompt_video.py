@@ -142,7 +142,13 @@ def main() -> None:
     resolved_tts_engine = args.tts_engine if args.tts_engine != "auto" else route.tts_engine
     resolved_voice = args.voice.strip()
     if not resolved_voice:
-        resolved_voice = route.loquendo_voice if resolved_tts_engine == "loquendo" else route.fluido_voice
+        if resolved_tts_engine == "loquendo":
+            resolved_voice = route.loquendo_voice
+        elif resolved_tts_engine == "fluido":
+            resolved_voice = route.fluido_voice
+        else:
+            # En auto dejamos vacio para que el proveedor real (edge/windows) decida el default correcto.
+            resolved_voice = ""
 
     repos = InMemoryRepositoryBundle()
     project = Project(
@@ -246,9 +252,12 @@ def main() -> None:
     script_model_resolved = "n/a"
     correction_engine_resolved = "n/a"
     correction_model_resolved = "n/a"
+    active_script_model = (
+        llm_provider.active_model_id if isinstance(llm_provider, HuggingFaceSpanishLLMProvider) else resolved_script_model
+    )
     if isinstance(llm_provider, HuggingFaceSpanishLLMProvider):
         script_engine_resolved = "hf"
-        script_model_resolved = resolved_script_model
+        script_model_resolved = active_script_model
 
     if script_version and script_version.provider_model:
         parts = script_version.provider_model.split("|", maxsplit=1)
@@ -260,11 +269,15 @@ def main() -> None:
             correction_model_resolved = match.group(2)
     if "recovery" in script_provider_name:
         script_engine_resolved = "hf_recovery"
-        script_model_resolved = resolved_script_model
+        script_model_resolved = active_script_model
     elif "degraded" in script_provider_name:
         script_engine_resolved = "hf_degraded"
-        script_model_resolved = resolved_script_model
+        script_model_resolved = active_script_model
     if correction_engine_resolved == "n/a":
+        correction_engine_resolved = _resolve_correction_engine_label(
+            requested_engine=args.correction_engine,
+            correction_provider=correction_provider,
+        )
         correction_model_resolved = resolved_correction_model
     summary = {
         "locale": locale.value,
@@ -435,6 +448,17 @@ def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> 
     ]
     with lessons_path.open("a", encoding="utf-8") as file:
         file.write("\n".join(lines))
+
+
+def _resolve_correction_engine_label(requested_engine: str, correction_provider: SpanishTextCorrector) -> str:
+    normalized = requested_engine.strip().lower()
+    if isinstance(correction_provider, HuggingFaceSpanishCorrector):
+        return "hf"
+    if isinstance(correction_provider, NoOpSpanishCorrector):
+        return "guard"
+    if isinstance(correction_provider, AutoSpanishCorrector):
+        return "auto"
+    return normalized or "n/a"
 
 
 if __name__ == "__main__":

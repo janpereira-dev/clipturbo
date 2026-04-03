@@ -2,7 +2,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
-from clipturbo_core.domain import Project, ScriptSourceType, ScriptVersion, VersionNumber, VoiceProfile, VoiceProvider
+from clipturbo_core.domain import (
+    ActorType,
+    AuditActor,
+    AuditLog,
+    Project,
+    ScriptSourceType,
+    ScriptVersion,
+    VersionNumber,
+    VoiceProfile,
+    VoiceProvider,
+)
 from clipturbo_core.in_memory_repositories import InMemoryRepositoryBundle
 from clipturbo_core.sqlite_repositories import SqliteProjectRepository, SqliteScriptVersionRepository
 
@@ -68,3 +78,29 @@ def test_in_memory_active_voice_listing() -> None:
     active_ids = {voice.id for voice in repos.voice_profiles.list_active()}
     assert active.id in active_ids
     assert inactive.id not in active_ids
+
+
+def test_in_memory_audit_log_global_scope() -> None:
+    repos = InMemoryRepositoryBundle()
+    project = Project(owner_id=uuid4(), workspace_id=uuid4(), name="Proyecto audit")
+    repos.projects.save(project)
+
+    global_event = AuditLog(
+        project_id=None,
+        actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id="system"),
+        action="voice_profile.create",
+        entity_type="voice_profile",
+        entity_id="voice-1",
+    )
+    project_event = AuditLog(
+        project_id=project.id,
+        actor=AuditActor(actor_type=ActorType.USER, actor_id="user-1"),
+        action="project.create",
+        entity_type="project",
+        entity_id=str(project.id),
+    )
+    repos.audit_logs.append(global_event)
+    repos.audit_logs.append(project_event)
+
+    assert len(repos.audit_logs.list_global()) == 1
+    assert len(repos.audit_logs.list_by_project(project.id)) == 1

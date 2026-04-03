@@ -1,8 +1,11 @@
 from pathlib import Path
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
 def test_no_hardcoded_lexicon_in_spanish_quality() -> None:
-    file_path = Path("packages/clipturbo_core/src/clipturbo_core/spanish_quality.py")
+    file_path = REPO_ROOT / "packages" / "clipturbo_core" / "src" / "clipturbo_core" / "spanish_quality.py"
     content = file_path.read_text(encoding="utf-8")
 
     banned_markers = (
@@ -15,7 +18,7 @@ def test_no_hardcoded_lexicon_in_spanish_quality() -> None:
 
 
 def test_no_topic_guided_static_script_fallback() -> None:
-    file_path = Path("packages/clipturbo_core/src/clipturbo_core/local_providers.py")
+    file_path = REPO_ROOT / "packages" / "clipturbo_core" / "src" / "clipturbo_core" / "local_providers.py"
     content = file_path.read_text(encoding="utf-8")
 
     banned_markers = (

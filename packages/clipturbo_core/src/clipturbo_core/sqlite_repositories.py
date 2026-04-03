@@ -231,6 +231,9 @@ class SqliteAuditLogRepository:
     def list_by_project(self, project_id: UUID) -> list[AuditLog]:
         return [item for item in self._store.list_all() if item.project_id == project_id]
 
+    def list_global(self) -> list[AuditLog]:
+        return [item for item in self._store.list_all() if item.project_id is None]
+
 
 class SqliteComplianceReviewRepository:
     def __init__(self, db_path: str | Path) -> None:

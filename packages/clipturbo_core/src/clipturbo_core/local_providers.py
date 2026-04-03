@@ -29,8 +29,25 @@ from clipturbo_core.text_correction import (
 )
 
 
+_MAX_SUBPROCESS_ERROR_OUTPUT_CHARS = 1000
+
+
+def _truncate_subprocess_output(output: str | None) -> str:
+    if not output:
+        return ""
+    normalized = output.strip()
+    if len(normalized) <= _MAX_SUBPROCESS_ERROR_OUTPUT_CHARS:
+        return normalized
+    return normalized[:_MAX_SUBPROCESS_ERROR_OUTPUT_CHARS] + "... [truncated]"
+
+
 def _run(command: list[str]) -> None:
-    subprocess.run(command, check=True, capture_output=True, text=True)
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as error:
+        output = _truncate_subprocess_output(error.stderr) or _truncate_subprocess_output(error.stdout)
+        details = f": {output}" if output else ""
+        raise RuntimeError(f"Command failed ({' '.join(command)}){details}") from error
 
 
 def _ffprobe_duration_seconds(asset_path: str) -> float:

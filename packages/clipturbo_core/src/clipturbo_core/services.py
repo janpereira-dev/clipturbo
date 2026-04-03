@@ -175,7 +175,7 @@ class VoiceService:
         self._voices.save(profile)
         self._audits.append(
             AuditLog(
-                project_id=UUID(int=0),
+                project_id=None,
                 actor=AuditActor(actor_type=ActorType.USER, actor_id=actor_id),
                 action="voice_profile.create",
                 entity_type="voice_profile",
@@ -193,7 +193,7 @@ class VoiceService:
         self._voices.save(updated)
         self._audits.append(
             AuditLog(
-                project_id=UUID(int=0),
+                project_id=None,
                 actor=AuditActor(actor_type=ActorType.USER, actor_id=actor_id),
                 action="voice_profile.deactivate",
                 entity_type="voice_profile",
