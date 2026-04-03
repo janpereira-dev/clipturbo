@@ -21,6 +21,11 @@ from clipturbo_core.providers import (
     SynthesizedAudio,
 )
 from clipturbo_core.spanish_quality import SpanishOrthographyGuard
+from clipturbo_core.text_correction import (
+    CorrectionResult,
+    RuleBasedSpanishCorrector,
+    SpanishTextCorrector,
+)
 
 
 def _run(command: list[str]) -> None:
@@ -52,8 +57,26 @@ def _split_sentences(text: str) -> list[str]:
 
 
 class RuleBasedSpanishLLMProvider:
-    def __init__(self, quality_guard: SpanishOrthographyGuard | None = None) -> None:
-        self._quality_guard = quality_guard or SpanishOrthographyGuard()
+    def __init__(
+        self,
+        quality_guard: SpanishOrthographyGuard | None = None,
+        text_corrector: SpanishTextCorrector | None = None,
+    ) -> None:
+        guard = quality_guard or SpanishOrthographyGuard()
+        self._text_corrector = text_corrector or RuleBasedSpanishCorrector(guard=guard)
+        self._last_correction = CorrectionResult(
+            text="",
+            engine="guard",
+            model="spanish_orthography_guard_v1",
+        )
+
+    @property
+    def last_correction_engine(self) -> str:
+        return self._last_correction.engine
+
+    @property
+    def last_correction_model(self) -> str:
+        return self._last_correction.model
 
     def generate_text(self, prompt: str) -> GeneratedScript:
         topic = self._extract_topic(prompt)
@@ -66,10 +89,12 @@ class RuleBasedSpanishLLMProvider:
             "No busques aplausos. Busca coherencia.",
             "Respira, enfócate y da el siguiente paso.",
         ]
-        script_text = self._quality_guard.process(" ".join(lines))
+        correction = self._text_corrector.correct(" ".join(lines))
+        self._last_correction = correction
+        script_text = correction.text
         trace: ProviderTrace = {
             "provider_name": "rule_based_local",
-            "provider_model": "stoic-es-v1",
+            "provider_model": f"stoic-es-v1|correction:{correction.engine}:{correction.model}",
             "request_id": f"llm_{uuid4().hex}",
         }
         return {"script_text": script_text, "trace": trace}

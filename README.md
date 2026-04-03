@@ -98,6 +98,17 @@ Esta fase implementa la base operativa del proyecto:
 
 Los nombres de carpeta con guiones son deliberados para claridad organizativa; por eso los comandos de arranque se documentan por directorio de trabajo.
 
+Pipeline directo desde la raiz:
+
+`python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --tts-engine auto --correction-engine auto --publish-drafts`
+
+Correccion con modelo HF en espanol:
+
+1. `python -m pip install transformers sentencepiece torch`
+2. `python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000"`
+
+Importante: el nombre del modelo no se ejecuta como comando en PowerShell; siempre se pasa como argumento de `--correction-model`.
+
 ## Compatibilidad de agentes
 
 - `Codex`: [AGENTS.md](AGENTS.md)

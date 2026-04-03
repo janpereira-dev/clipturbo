@@ -11,6 +11,7 @@
 - [x] implementar repositorios `in-memory` y `sqlite` para entidades de dominio
 - [x] implementar servicios de aplicacion para authoring, render, trazabilidad y publish
 - [x] implementar orquestador `prompt -> script -> audio -> subtitulos -> render -> publish`
+- [x] integrar corrector ortografico/gramatical en espanol con motor `guard|hf|auto`
 - [ ] incorporar pytest, ruff y mypy en CI
 - [x] implementar primer endpoint de salud y version
 - [x] definir ComplianceReview en codigo (PromptTrace y AuditLog implementados)

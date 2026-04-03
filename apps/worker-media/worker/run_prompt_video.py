@@ -37,6 +37,13 @@ from clipturbo_core.local_providers import (
     edge_tts_available,
 )
 from clipturbo_core.providers import TTSProvider
+from clipturbo_core.text_correction import (
+    AutoSpanishCorrector,
+    HuggingFaceSpanishCorrector,
+    RuleBasedSpanishCorrector,
+    SpanishTextCorrector,
+    huggingface_correction_available,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,6 +65,17 @@ def parse_args() -> argparse.Namespace:
         "--publish-drafts",
         action="store_true",
         help="Si se activa, genera borradores locales para YouTube, Instagram y TikTok.",
+    )
+    parser.add_argument(
+        "--correction-engine",
+        default="auto",
+        choices=["auto", "guard", "hf"],
+        help="guard: reglas locales; hf: modelo Hugging Face; auto: usa HF y cae a reglas.",
+    )
+    parser.add_argument(
+        "--correction-model",
+        default="jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000",
+        help="Modelo Hugging Face para correccion ortografica/gramatical.",
     )
     parser.add_argument(
         "--record-lesson",
@@ -88,6 +106,10 @@ def main() -> None:
         engine=args.tts_engine,
         voice=args.voice,
         audio_dir=output_root / "audio",
+    )
+    correction_provider = _build_correction_provider(
+        engine=args.correction_engine,
+        model=args.correction_model,
     )
     voice_profile = VoiceProfile(
         name=voice_name,
@@ -120,7 +142,7 @@ def main() -> None:
         publish=publish_service,
         projects=repos.projects,
         voices=repos.voice_profiles,
-        llm=RuleBasedSpanishLLMProvider(),
+        llm=RuleBasedSpanishLLMProvider(text_corrector=correction_provider),
         tts=tts_provider,
         subtitles=subtitle_provider,
         video_renderer=FFmpegVideoRenderProvider(output_root / "videos", subtitle_provider),
@@ -148,15 +170,25 @@ def main() -> None:
     )
 
     render_job = repos.render_jobs.get(result.render_job_id)
+    llm_provider = pipeline.llm
+    correction_engine_resolved = "n/a"
+    correction_model_resolved = "n/a"
+    if isinstance(llm_provider, RuleBasedSpanishLLMProvider):
+        correction_engine_resolved = llm_provider.last_correction_engine
+        correction_model_resolved = llm_provider.last_correction_model
     summary = {
         "tts_engine": args.tts_engine,
         "resolved_tts_provider": voice_provider.value,
         "voice_name": voice_name,
+        "correction_engine": args.correction_engine,
+        "resolved_correction_engine": correction_engine_resolved,
+        "resolved_correction_model": correction_model_resolved,
         "project_id": str(result.project_id),
         "script_version_id": str(result.script_version_id),
         "render_job_id": str(result.render_job_id),
         "output_video": render_job.output_url if render_job else None,
         "publish_jobs": [str(job_id) for job_id in result.publish_job_ids],
+        "publish_jobs_count": len(result.publish_job_ids),
         "compliance_review_id": str(result.compliance_review_id),
     }
     summary_path = output_root / "last_run.json"
@@ -205,6 +237,23 @@ def _build_tts_provider(
     )
 
 
+def _build_correction_provider(engine: str, model: str) -> SpanishTextCorrector:
+    if engine == "guard":
+        return RuleBasedSpanishCorrector()
+
+    if engine == "hf":
+        if not huggingface_correction_available():
+            raise RuntimeError(
+                "Modo hf requiere dependencias. Instala: "
+                "python -m pip install transformers sentencepiece torch"
+            )
+        return HuggingFaceSpanishCorrector(model_id=model)
+
+    if huggingface_correction_available():
+        return AutoSpanishCorrector(model_id=model)
+    return RuleBasedSpanishCorrector()
+
+
 def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> None:
     lessons_path = REPO_ROOT / "docs" / "lessons" / "pipeline-runs.md"
     lessons_path.parent.mkdir(parents=True, exist_ok=True)
@@ -214,8 +263,10 @@ def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> 
         f"- topic: {args.topic}",
         f"- tts_engine: {summary['tts_engine']}",
         f"- voice_name: {summary['voice_name']}",
+        f"- correction_engine: {summary['resolved_correction_engine']}",
+        f"- correction_model: {summary['resolved_correction_model']}",
         f"- output_video: {summary['output_video']}",
-        f"- publish_jobs: {len(summary['publish_jobs'])}",
+        f"- publish_jobs: {summary['publish_jobs_count']}",
         f"- compliance_review_id: {summary['compliance_review_id']}",
         "- nota: registrar tambien en Engram para memoria transversal.",
         "",

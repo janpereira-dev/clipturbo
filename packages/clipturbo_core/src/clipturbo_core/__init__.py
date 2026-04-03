@@ -41,6 +41,12 @@ from clipturbo_core.services import (
     VoiceService,
 )
 from clipturbo_core.spanish_quality import SpanishOrthographyGuard
+from clipturbo_core.text_correction import (
+    AutoSpanishCorrector,
+    HuggingFaceSpanishCorrector,
+    RuleBasedSpanishCorrector,
+    huggingface_correction_available,
+)
 
 __all__ = [
     "ActorType",
@@ -80,4 +86,8 @@ __all__ = [
     "TraceabilityService",
     "VoiceService",
     "SpanishOrthographyGuard",
+    "AutoSpanishCorrector",
+    "HuggingFaceSpanishCorrector",
+    "RuleBasedSpanishCorrector",
+    "huggingface_correction_available",
 ]

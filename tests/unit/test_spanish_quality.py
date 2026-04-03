@@ -1,5 +1,15 @@
 from clipturbo_core.local_providers import RuleBasedSpanishLLMProvider
 from clipturbo_core.spanish_quality import SpanishOrthographyGuard
+from clipturbo_core.text_correction import CorrectionResult
+
+
+class StubCorrector:
+    def correct(self, text: str) -> CorrectionResult:
+        return CorrectionResult(
+            text="Texto corregido y limpio.",
+            engine="hf",
+            model="stub-model",
+        )
 
 
 def test_spanish_orthography_guard_corrects_common_errors() -> None:
@@ -22,3 +32,13 @@ def test_rule_based_provider_outputs_clean_spanish() -> None:
     assert "reaccion" not in script.lower()
     assert "manana" not in script.lower()
     assert "enfocate" not in script.lower()
+
+
+def test_rule_based_provider_reports_correction_source() -> None:
+    provider = RuleBasedSpanishLLMProvider(text_corrector=StubCorrector())
+    result = provider.generate_text("Crea motivación estoica sobre hábitos")
+
+    assert result["script_text"] == "Texto corregido y limpio."
+    assert provider.last_correction_engine == "hf"
+    assert provider.last_correction_model == "stub-model"
+    assert "correction:hf:stub-model" in result["trace"]["provider_model"]
