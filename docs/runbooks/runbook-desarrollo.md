@@ -48,6 +48,7 @@ Routing por pais/registro:
 - `--registro`: `neutral`, `cercano`, `profesional`.
 - `--routing-manifest`: manifiesto JSON con modelos y voces por locale/registro.
 - `--script-model` y `--correction-model` sobreescriben el routing cuando se pasan explicitamente.
+- si un modelo HF falla por acceso (`401`, `gated repo`), el core prueba fallbacks del manifiesto antes de fallar.
 
 Modos de voz:
 
@@ -76,7 +77,7 @@ python apps/worker-media/worker/run_prompt_video.py --topic "motivacion estoica"
 Ejemplo full HF (guion + correccion):
 
 ```bash
-python apps/worker-media/worker/run_prompt_video.py --topic "habitos estoicos para entrenar disciplina" --locale es-CO --registro profesional --script-engine hf --script-model "meta-llama/Llama-3.2-3B-Instruct" --tts-engine fluido --voice "es-MX-DaliaNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e" --publish-drafts
+python apps/worker-media/worker/run_prompt_video.py --topic "habitos estoicos para entrenar disciplina" --locale es-CO --registro profesional --script-engine hf --script-model "Qwen/Qwen2.5-1.5B-Instruct" --tts-engine fluido --voice "es-MX-DaliaNeural" --correction-engine hf --correction-model "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e" --publish-drafts
 ```
 
 Modelos sugeridos para `--correction-model`:

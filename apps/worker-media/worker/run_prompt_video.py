@@ -136,7 +136,9 @@ def main() -> None:
     available_registers = list_registers_for_locale(routing_manifest, locale)
 
     resolved_script_model = args.script_model.strip() or route.script_model
+    resolved_script_model_fallbacks = route.script_model_fallbacks
     resolved_correction_model = args.correction_model.strip() or route.correction_model
+    resolved_correction_model_fallbacks = route.correction_model_fallbacks
     resolved_tts_engine = args.tts_engine if args.tts_engine != "auto" else route.tts_engine
     resolved_voice = args.voice.strip()
     if not resolved_voice:
@@ -161,10 +163,12 @@ def main() -> None:
     correction_provider = _build_correction_provider(
         engine=args.correction_engine,
         model=resolved_correction_model,
+        fallback_models=resolved_correction_model_fallbacks,
     )
     llm_provider = _build_llm_provider(
         engine=args.script_engine,
         model=resolved_script_model,
+        fallback_models=resolved_script_model_fallbacks,
         text_corrector=correction_provider,
     )
     voice_profile = VoiceProfile(
@@ -247,6 +251,9 @@ def main() -> None:
         script_model_resolved = resolved_script_model
 
     if script_version and script_version.provider_model:
+        parts = script_version.provider_model.split("|", maxsplit=1)
+        if parts and parts[0].strip():
+            script_model_resolved = parts[0].strip()
         match = re.search(r"\|(?:correction|corr):([^:]+):(.+)$", script_version.provider_model)
         if match:
             correction_engine_resolved = match.group(1)
@@ -265,6 +272,10 @@ def main() -> None:
         "registro": route.register_id,
         "routing_manifest": args.routing_manifest,
         "routing_registers_locale": available_registers,
+        "routing_script_model": resolved_script_model,
+        "routing_script_fallbacks": resolved_script_model_fallbacks,
+        "routing_correction_model": resolved_correction_model,
+        "routing_correction_fallbacks": resolved_correction_model_fallbacks,
         "script_engine": args.script_engine,
         "resolved_script_provider": script_provider_name,
         "resolved_script_engine": script_engine_resolved,
@@ -337,7 +348,11 @@ def _build_tts_provider(
     )
 
 
-def _build_correction_provider(engine: str, model: str) -> SpanishTextCorrector:
+def _build_correction_provider(
+    engine: str,
+    model: str,
+    fallback_models: list[str],
+) -> SpanishTextCorrector:
     if engine == "guard":
         return NoOpSpanishCorrector()
 
@@ -347,16 +362,23 @@ def _build_correction_provider(engine: str, model: str) -> SpanishTextCorrector:
                 "Modo hf requiere dependencias. Instala: "
                 "python -m pip install transformers sentencepiece torch"
             )
-        return HuggingFaceSpanishCorrector(model_id=model)
+        return HuggingFaceSpanishCorrector(
+            model_id=model,
+            fallback_model_ids=fallback_models,
+        )
 
     if huggingface_correction_available():
-        return AutoSpanishCorrector(model_id=model)
+        return AutoSpanishCorrector(
+            model_id=model,
+            fallback_model_ids=fallback_models,
+        )
     return NoOpSpanishCorrector()
 
 
 def _build_llm_provider(
     engine: str,
     model: str,
+    fallback_models: list[str],
     text_corrector: SpanishTextCorrector,
 ) -> LLMProvider:
     if engine == "hf":
@@ -367,6 +389,7 @@ def _build_llm_provider(
             )
         return HuggingFaceSpanishLLMProvider(
             model_id=model,
+            fallback_model_ids=fallback_models,
             text_corrector=text_corrector,
             allow_fallback=True,
         )
@@ -374,6 +397,7 @@ def _build_llm_provider(
     if huggingface_generation_available():
         return HuggingFaceSpanishLLMProvider(
             model_id=model,
+            fallback_model_ids=fallback_models,
             text_corrector=text_corrector,
             allow_fallback=True,
         )
@@ -392,6 +416,10 @@ def _append_run_lesson(summary: dict[str, object], args: argparse.Namespace) -> 
         f"- topic: {args.topic}",
         f"- locale: {summary['locale']}",
         f"- registro: {summary['registro']}",
+        f"- routing_script_model: {summary['routing_script_model']}",
+        f"- routing_script_fallbacks: {summary['routing_script_fallbacks']}",
+        f"- routing_correction_model: {summary['routing_correction_model']}",
+        f"- routing_correction_fallbacks: {summary['routing_correction_fallbacks']}",
         f"- script_provider: {summary['resolved_script_provider']}",
         f"- script_engine: {summary['resolved_script_engine']}",
         f"- script_model: {summary['resolved_script_model']}",

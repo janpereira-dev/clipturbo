@@ -74,12 +74,19 @@ class HuggingFaceSpanishLLMProvider:
         max_new_tokens: int = 220,
         text_corrector: SpanishTextCorrector | None = None,
         allow_fallback: bool = True,
+        fallback_model_ids: list[str] | None = None,
     ) -> None:
         self._model_id = model_id
+        self._fallback_model_ids = fallback_model_ids or []
         self._max_new_tokens = max_new_tokens
         self._text_corrector = text_corrector or NoOpSpanishCorrector()
         self._allow_fallback = allow_fallback
         self._runtime: dict[str, object] | None = None
+        self._active_model_id = model_id
+
+    @property
+    def active_model_id(self) -> str:
+        return self._active_model_id
 
     def generate_text(self, prompt: str) -> GeneratedScript:
         topic = _extract_topic_from_prompt(prompt)
@@ -90,12 +97,14 @@ class HuggingFaceSpanishLLMProvider:
             script_text = correction.text
             provider_name = "hf_local_generation_degraded" if degraded else "hf_local_generation"
             provider_model = _compact_provider_model(
-                model_id=self._model_id,
+                model_id=self.active_model_id,
                 correction_engine=correction.engine,
                 correction_model=correction.model,
                 retry=degraded,
             )
         except Exception as exc:
+            if _is_model_access_error(exc):
+                raise RuntimeError(_build_hf_model_access_message(self._candidate_model_ids())) from exc
             if not self._allow_fallback:
                 raise
             cleaned_retry, degraded_retry = self._generate_validated_script(
@@ -106,7 +115,7 @@ class HuggingFaceSpanishLLMProvider:
             script_text = correction.text
             provider_name = "hf_local_generation_recovery_degraded" if degraded_retry else "hf_local_generation_recovery"
             provider_model = _compact_provider_model(
-                model_id=self._model_id,
+                model_id=self.active_model_id,
                 correction_engine=correction.engine,
                 correction_model=correction.model,
                 retry=True,
@@ -179,29 +188,56 @@ class HuggingFaceSpanishLLMProvider:
     def _get_runtime(self) -> dict[str, object]:
         if self._runtime is not None:
             return self._runtime
+        errors: list[Exception] = []
+        for candidate_model in self._candidate_model_ids():
+            try:
+                runtime = self._load_runtime_for_model(candidate_model)
+                self._active_model_id = candidate_model
+                self._runtime = runtime
+                return runtime
+            except Exception as exc:
+                errors.append(exc)
+                continue
+        if errors and any(_is_model_access_error(err) for err in errors):
+            raise RuntimeError(_build_hf_model_access_message(self._candidate_model_ids())) from errors[-1]
+        last_error = errors[-1] if errors else RuntimeError("runtime no disponible")
+        raise RuntimeError("No fue posible cargar ningun modelo HF para generacion de guion.") from last_error
+
+    def _load_runtime_for_model(self, model_id: str) -> dict[str, object]:
         transformers_module, torch_module = _load_transformers_runtime()
         auto_tokenizer = getattr(transformers_module, "AutoTokenizer")
-        tokenizer = auto_tokenizer.from_pretrained(self._model_id)
+        tokenizer = auto_tokenizer.from_pretrained(model_id)
 
         model: object
         mode: str
         try:
             auto_seq2seq = getattr(transformers_module, "AutoModelForSeq2SeqLM")
-            model = auto_seq2seq.from_pretrained(self._model_id)
+            model = auto_seq2seq.from_pretrained(model_id)
             mode = "seq2seq"
         except Exception:
             auto_causal = getattr(transformers_module, "AutoModelForCausalLM")
-            model = auto_causal.from_pretrained(self._model_id)
+            model = auto_causal.from_pretrained(model_id)
             mode = "causal"
 
         model.eval()  # type: ignore[operator]
-        self._runtime = {
+        return {
             "tokenizer": tokenizer,
             "model": model,
             "torch_module": torch_module,
             "mode": mode,
         }
-        return self._runtime
+
+    def _candidate_model_ids(self) -> list[str]:
+        candidates = [self._model_id, *self._fallback_model_ids]
+        unique: list[str] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            model_id = candidate.strip()
+            if not model_id or model_id in seen:
+                continue
+            seen.add(model_id)
+            unique.append(model_id)
+        return unique
 
 
 def huggingface_generation_available() -> bool:
@@ -222,6 +258,27 @@ def _load_transformers_runtime() -> tuple[ModuleType, ModuleType]:
             "Instala dependencias: python -m pip install transformers sentencepiece torch"
         ) from exc
     return transformers_module, torch_module
+
+
+def _is_model_access_error(error: Exception) -> bool:
+    text = str(error).lower()
+    patterns = (
+        "gated repo",
+        "cannot access gated repo",
+        "401",
+        "unauthorized",
+        "make sure to have access",
+    )
+    return any(pattern in text for pattern in patterns)
+
+
+def _build_hf_model_access_message(candidate_model_ids: list[str]) -> str:
+    candidates = ", ".join(candidate_model_ids)
+    return (
+        "No se pudo acceder a modelos HF (repo gated o credenciales faltantes). "
+        f"Modelos intentados: {candidates}. "
+        "Usa modelos abiertos en `manifests/model-routing.json` o autentica con `huggingface-cli login`."
+    )
 
 
 def _build_generation_prompt(topic: str) -> str:

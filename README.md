@@ -113,6 +113,7 @@ Routing por dialecto/pais:
 - archivo fuente: [manifests/model-routing.json](manifests/model-routing.json)
 - prioriza modelos y voces por `locale + registro`
 - `--script-model`, `--correction-model` y `--voice` permiten override sin editar codigo
+- incluye fallback de modelos HF para evitar corte total ante repos restringidos (`gated/401`)
 
 Correccion con modelo HF en espanol:
 

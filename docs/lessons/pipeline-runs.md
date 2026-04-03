@@ -48,3 +48,22 @@ Reglas:
 - publish_jobs: 3
 - compliance_review_id: d55358d0-342c-4c20-89e1-b25b78eb5d1c
 - nota: registrar tambien en Engram para memoria transversal.
+## Run 2026-04-03T17:22:04.065635+00:00
+- topic: motivacion estoica
+- locale: es-ES
+- registro: cercano
+- routing_script_model: Qwen/Qwen2.5-1.5B-Instruct
+- routing_script_fallbacks: ['Qwen/Qwen2.5-0.5B-Instruct']
+- routing_correction_model: jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000
+- routing_correction_fallbacks: ['jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000', 'jorgeortizfuentes/spanish-spellchecker-mt5-large_3e']
+- script_provider: hf_local_generation
+- script_engine: hf
+- script_model: Qwen/Qwen2.5-1.5B-Instruct
+- tts_engine: fluido
+- voice_name: es-ES-AlvaroNeural
+- correction_engine: hf
+- correction_model: jorgeortizfuentes/spanish-spellchecker-t5-base-wiki200000
+- output_video: media\generated\storage\renders\838a45c3-32f1-42ca-a60d-417a37bd2b2e\74f9b55b-4010-4a1a-8222-f9020e16cfa3.mp4
+- publish_jobs: 3
+- compliance_review_id: 15806e32-5f8d-452c-811c-a2f91a81a9cb
+- nota: registrar tambien en Engram para memoria transversal.

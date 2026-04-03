@@ -23,7 +23,9 @@ class DialectRoute(BaseModel):
 
     register_id: str = Field(default="neutral", alias="register", min_length=2, max_length=32)
     script_model: str = Field(min_length=3, max_length=200)
+    script_model_fallbacks: list[str] = Field(default_factory=list, min_length=0, max_length=8)
     correction_model: str = Field(min_length=3, max_length=200)
+    correction_model_fallbacks: list[str] = Field(default_factory=list, min_length=0, max_length=8)
     tts_engine: TtsEngine = "auto"
     fluido_voice: str = Field(default="es-ES-AlvaroNeural", min_length=2, max_length=120)
     loquendo_voice: str = Field(default="Microsoft Laura", min_length=2, max_length=120)
@@ -32,6 +34,23 @@ class DialectRoute(BaseModel):
     @classmethod
     def _clean_register(cls, value: str) -> str:
         return _normalize_register(value)
+
+    @model_validator(mode="after")
+    def _normalize_fallback_lists(self) -> DialectRoute:
+        def _normalize_list(items: list[str], primary: str) -> list[str]:
+            cleaned: list[str] = []
+            seen: set[str] = {primary.strip()}
+            for item in items:
+                value = item.strip()
+                if not value or value in seen:
+                    continue
+                seen.add(value)
+                cleaned.append(value)
+            return cleaned
+
+        self.script_model_fallbacks = _normalize_list(self.script_model_fallbacks, self.script_model)
+        self.correction_model_fallbacks = _normalize_list(self.correction_model_fallbacks, self.correction_model)
+        return self
 
 
 class ModelRoutingManifest(BaseModel):

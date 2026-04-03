@@ -39,15 +39,18 @@ class HuggingFaceSpanishCorrector:
         model_id: str,
         max_new_tokens: int = 256,
         guard: SpanishOrthographyGuard | None = None,
+        fallback_model_ids: list[str] | None = None,
     ) -> None:
         self._model_id = model_id
+        self._fallback_model_ids = fallback_model_ids or []
         self._max_new_tokens = max_new_tokens
         self._guard = guard or SpanishOrthographyGuard()
         self._runtime: dict[str, object] | None = None
+        self._active_model_id = model_id
 
     @property
     def model_id(self) -> str:
-        return self._model_id
+        return self._active_model_id
 
     def correct(self, text: str) -> CorrectionResult:
         runtime = self._get_runtime()
@@ -91,35 +94,62 @@ class HuggingFaceSpanishCorrector:
         return CorrectionResult(
             text=corrected,
             engine="hf",
-            model=self._model_id,
+            model=self.model_id,
         )
 
     def _get_runtime(self) -> dict[str, object]:
         if self._runtime is not None:
             return self._runtime
+        errors: list[Exception] = []
+        for candidate_model in self._candidate_model_ids():
+            try:
+                runtime = self._load_runtime_for_model(candidate_model)
+                self._active_model_id = candidate_model
+                self._runtime = runtime
+                return runtime
+            except Exception as exc:
+                errors.append(exc)
+                continue
+        if errors and any(_is_model_access_error(err) for err in errors):
+            raise RuntimeError(_build_hf_model_access_message(self._candidate_model_ids())) from errors[-1]
+        last_error = errors[-1] if errors else RuntimeError("runtime no disponible")
+        raise RuntimeError("No fue posible cargar ningun modelo HF para correccion de texto.") from last_error
+
+    def _load_runtime_for_model(self, model_id: str) -> dict[str, object]:
         transformers_module, torch_module = _load_transformers_runtime()
         auto_tokenizer = getattr(transformers_module, "AutoTokenizer")
-        tokenizer = auto_tokenizer.from_pretrained(self._model_id)
+        tokenizer = auto_tokenizer.from_pretrained(model_id)
 
         model: object
         mode: str
         try:
             auto_seq2seq = getattr(transformers_module, "AutoModelForSeq2SeqLM")
-            model = auto_seq2seq.from_pretrained(self._model_id)
+            model = auto_seq2seq.from_pretrained(model_id)
             mode = "seq2seq"
         except Exception:
             auto_causal = getattr(transformers_module, "AutoModelForCausalLM")
-            model = auto_causal.from_pretrained(self._model_id)
+            model = auto_causal.from_pretrained(model_id)
             mode = "causal"
 
         model.eval()  # type: ignore[operator]
-        self._runtime = {
+        return {
             "tokenizer": tokenizer,
             "model": model,
             "torch_module": torch_module,
             "mode": mode,
         }
-        return self._runtime
+
+    def _candidate_model_ids(self) -> list[str]:
+        candidates = [self._model_id, *self._fallback_model_ids]
+        unique: list[str] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            model_id = candidate.strip()
+            if not model_id or model_id in seen:
+                continue
+            seen.add(model_id)
+            unique.append(model_id)
+        return unique
 
     @staticmethod
     def _build_model_input(text: str) -> str:
@@ -140,17 +170,40 @@ def _load_transformers_runtime() -> tuple[ModuleType, ModuleType]:
     return transformers_module, torch_module
 
 
+def _is_model_access_error(error: Exception) -> bool:
+    text = str(error).lower()
+    patterns = (
+        "gated repo",
+        "cannot access gated repo",
+        "401",
+        "unauthorized",
+        "make sure to have access",
+    )
+    return any(pattern in text for pattern in patterns)
+
+
+def _build_hf_model_access_message(candidate_model_ids: list[str]) -> str:
+    candidates = ", ".join(candidate_model_ids)
+    return (
+        "No se pudo acceder a modelos HF para correccion (repo gated o credenciales faltantes). "
+        f"Modelos intentados: {candidates}. "
+        "Usa modelos abiertos en `manifests/model-routing.json` o autentica con `huggingface-cli login`."
+    )
+
+
 class AutoSpanishCorrector:
     def __init__(
         self,
         model_id: str,
         max_new_tokens: int = 256,
+        fallback_model_ids: list[str] | None = None,
         primary: SpanishTextCorrector | None = None,
         fallback: SpanishTextCorrector | None = None,
     ) -> None:
         self._primary = primary or HuggingFaceSpanishCorrector(
             model_id=model_id,
             max_new_tokens=max_new_tokens,
+            fallback_model_ids=fallback_model_ids,
         )
         self._fallback = fallback or NoOpSpanishCorrector()
 

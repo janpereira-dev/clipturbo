@@ -73,3 +73,12 @@ Usa este formato para registrar patrones repetidos.
 - correccion aplicada: reforzar limpieza en `text_correction.py` y `local_providers.py`, anadir sanitizacion de markdown/numeracion/timestamps e instrucciones meta, y tests de regresion.
 - regla aprendida: cualquier salida de modelo debe pasar un filtro anti-metainstruccion antes de persistirla o narrarla.
 - impacto: el guion final ahora descarta ruido de prompt y prioriza texto editorial util.
+
+## 2026-04-03 - gated repo HF y fallback de modelos
+
+- fecha: 2026-04-03
+- contexto: ejecucion real del runner con `es-ES/cercano` devolvio `401 Unauthorized` al intentar `google/gemma-3-4b-it`.
+- error o friccion: el pipeline caia con traceback largo sin intentar otro modelo.
+- correccion aplicada: agregar fallback de carga de modelo HF (guion y correccion), actualizar manifiesto a modelos abiertos por defecto y devolver error accionable corto cuando todos los candidatos fallan.
+- regla aprendida: nunca dejar un modelo potencialmente gated como unica ruta operativa; toda ruta HF debe incluir fallback verificable.
+- impacto: menor probabilidad de parada total por permisos HF y mejor DX de debugging.

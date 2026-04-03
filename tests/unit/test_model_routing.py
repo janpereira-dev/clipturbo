@@ -27,8 +27,9 @@ def test_resolve_route_returns_country_specific_models() -> None:
     route = resolve_dialect_route(manifest, locale=Locale.ES_CO, register="profesional")
 
     assert route.register_id == "profesional"
-    assert route.script_model == "meta-llama/Llama-3.2-3B-Instruct"
+    assert route.script_model == "Qwen/Qwen2.5-1.5B-Instruct"
     assert route.correction_model == "jorgeortizfuentes/spanish-spellchecker-mt5-large_3e"
+    assert route.script_model_fallbacks == ["Qwen/Qwen2.5-0.5B-Instruct"]
 
 
 def test_resolve_route_falls_back_to_neutral_register() -> None:
@@ -44,7 +45,7 @@ def test_resolve_route_falls_back_to_default_locale_when_missing() -> None:
     route = resolve_dialect_route(manifest, locale=Locale.ES_MX, register="cercano")
 
     assert route.register_id == "cercano"
-    assert route.script_model == "google/gemma-3-4b-it"
+    assert route.script_model == "Qwen/Qwen2.5-1.5B-Instruct"
 
 
 def test_list_registers_uses_default_locale_when_locale_missing() -> None:
