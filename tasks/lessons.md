@@ -28,3 +28,12 @@ Usa este formato para registrar patrones repetidos.
 - correccion aplicada: reemplazar `pipeline(...)` por carga explicita `AutoTokenizer + AutoModelForSeq2SeqLM/AutoModelForCausalLM` y `model.generate(...)`.
 - regla aprendida: evitar depender de nombres de task de `pipeline` para caminos criticos; preferir API de modelo/tokenizer directa y estable.
 - impacto: correccion HF funcional y compatible con versiones recientes de transformers.
+
+## 2026-04-03 - fuga de prompt en subtitulos/audio
+
+- fecha: 2026-04-03
+- contexto: salida HF incluia frases de instruccion dentro del texto final del guion.
+- error o friccion: audio y subtitulos narraban "Corrige ortografia..." en lugar de solo contenido editorial.
+- correccion aplicada: enviar solo texto plano al corrector HF y agregar limpieza de artefactos (`Corrige...`, `Texto:`) antes del guard de ortografia.
+- regla aprendida: para modelos spellchecker, evitar prompts largos de instruccion en inferencia de produccion.
+- impacto: el pipeline vuelve a generar audio/subtitulos sin contaminarse con metainstrucciones.

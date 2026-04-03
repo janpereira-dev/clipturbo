@@ -56,11 +56,11 @@ class HuggingFaceSpanishCorrector:
         torch_module = runtime["torch_module"]
         mode = runtime["mode"]
 
-        prompt = self._build_prompt(text)
+        model_input = self._build_model_input(text)
         target_tokens = min(self._max_new_tokens, max(96, len(text.split()) * 4))
 
         encoded = tokenizer(  # type: ignore[operator]
-            prompt,
+            model_input,
             return_tensors="pt",
             truncation=True,
             max_length=1024,
@@ -120,13 +120,10 @@ class HuggingFaceSpanishCorrector:
         return self._runtime
 
     @staticmethod
-    def _build_prompt(text: str) -> str:
-        return (
-            "Corrige ortografia y gramatica del siguiente texto en espanol. "
-            "Conserva significado, tono y longitud aproximada. "
-            "Devuelve solo el texto corregido.\n\n"
-            f"Texto:\n{text}"
-        )
+    def _build_model_input(text: str) -> str:
+        # Los modelos spellchecker usados en ClipTurbo corrigen mejor
+        # cuando reciben texto plano sin instrucciones.
+        return text.strip()
 
 
 def _load_transformers_runtime() -> tuple[ModuleType, ModuleType]:
@@ -172,10 +169,30 @@ def huggingface_correction_available() -> bool:
 
 def _cleanup_generated_text(text: str) -> str:
     cleaned = text.strip()
+    # Limpia respuestas que incluyen instrucciones o encabezados.
     cleaned = re.sub(
         r"^(texto corregido|texto final|correccion)\s*:\s*",
         "",
         cleaned,
         flags=re.IGNORECASE,
     )
+    cleaned = re.sub(
+        r"^corrige ortografia y gramatica del siguiente texto en espanol\.?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"^conserva significado, tono y longitud aproximada\.?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"^devuelve solo el texto corregido\.?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"^texto:\s*", "", cleaned, flags=re.IGNORECASE)
     return cleaned.strip()

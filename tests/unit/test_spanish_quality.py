@@ -14,7 +14,7 @@ class StubCorrector:
 
 def test_spanish_orthography_guard_corrects_common_errors() -> None:
     guard = SpanishOrthographyGuard()
-    raw = "cada decision pequena define tu caracter y como respondes manana"
+    raw = "cada decision pequea define tu caracter y como respondes maana"
     corrected = guard.process(raw)
 
     assert "decisión" in corrected
@@ -22,6 +22,15 @@ def test_spanish_orthography_guard_corrects_common_errors() -> None:
     assert "carácter" in corrected
     assert "cómo respondes" in corrected
     assert "mañana" in corrected
+
+
+def test_spanish_orthography_guard_corrects_model_artifacts() -> None:
+    guard = SpanishOrthographyGuard()
+    raw = "Dominaras tu da. Cada decisión pequea construye tu identidad."
+    corrected = guard.process(raw)
+
+    assert "dominarás tu día." in corrected.lower()
+    assert "pequeña" in corrected
 
 
 def test_rule_based_provider_outputs_clean_spanish() -> None:

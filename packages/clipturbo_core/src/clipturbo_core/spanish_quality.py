@@ -11,8 +11,11 @@ class SpanishOrthographyGuard:
         ("caracter", "carácter"),
         ("reaccion", "reacción"),
         ("decision", "decisión"),
+        ("dominaras", "dominarás"),
         ("pequena", "pequeña"),
+        ("pequea", "pequeña"),
         ("manana", "mañana"),
+        ("maana", "mañana"),
         ("dificil", "difícil"),
         ("aprobacion", "aprobación"),
         ("enfocate", "enfócate"),
@@ -27,6 +30,8 @@ class SpanishOrthographyGuard:
         ("no busques aprobacion", "no busques aprobación"),
         ("respira, enfocate y actua", "respira, enfócate y actúa"),
         ("la disciplina de hoy es la libertad de manana", "la disciplina de hoy es la libertad de mañana"),
+        ("dominarás tu da", "dominarás tu día"),
+        ("dominaras tu da", "dominarás tu día"),
     )
 
     _forbidden_tokens: tuple[str, ...] = (
@@ -35,9 +40,11 @@ class SpanishOrthographyGuard:
         "decision",
         "pequena",
         "manana",
+        "maana",
         "dificil",
         "aprobacion",
         "enfocate",
+        "pequea",
     )
 
     def process(self, text: str) -> str:
